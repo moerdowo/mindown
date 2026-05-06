@@ -25,11 +25,11 @@ struct YTDownMacApp: App {
                     window.styleMask.insert(.fullSizeContentView)
                     window.isMovableByWindowBackground = true
                     window.backgroundColor = NSColor(WinampPalette.windowBackground)
-                    // Keep the standard macOS close/minimize/zoom buttons
-                    // visible so users have familiar window controls.
-                    window.standardWindowButton(.closeButton)?.isHidden = false
-                    window.standardWindowButton(.miniaturizeButton)?.isHidden = false
-                    window.standardWindowButton(.zoomButton)?.isHidden = false
+                    // Hide the standard macOS traffic lights — our custom
+                    // _ □ X buttons in WindowChromeTitleBar replace them.
+                    window.standardWindowButton(.closeButton)?.isHidden = true
+                    window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+                    window.standardWindowButton(.zoomButton)?.isHidden = true
                     disableFocusRings(on: window.contentView)
                 })
         }
@@ -52,6 +52,11 @@ struct YTDownMacApp: App {
                     window.styleMask.insert(.fullSizeContentView)
                     window.isMovableByWindowBackground = true
                     window.backgroundColor = NSColor(WinampPalette.windowBackground)
+                    // Hide standard traffic lights — fake _ □ X in the title
+                    // bar replaces them, matching the main window's chrome.
+                    window.standardWindowButton(.closeButton)?.isHidden = true
+                    window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+                    window.standardWindowButton(.zoomButton)?.isHidden = true
                 })
         }
         .windowStyle(.hiddenTitleBar)

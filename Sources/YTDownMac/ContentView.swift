@@ -13,11 +13,16 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Outer window chrome — leadingInset 76 keeps YTDOWN clear of the
-            // macOS close/min/zoom traffic lights, which we leave visible so
-            // users have familiar window controls.
-            WindowChromeTitleBar(title: "YTDOWN", leadingInset: 76)
-                .ignoresSafeArea(edges: .top)
+            // Outer window chrome — fake _ □ X buttons replace the macOS
+            // traffic lights so the chrome reads as a single Winamp-style
+            // strip with YTDOWN flush left.
+            WindowChromeTitleBar(
+                title: "YTDOWN",
+                onMinimize: { NSApp.keyWindow?.miniaturize(nil) },
+                onZoom: { NSApp.keyWindow?.zoom(nil) },
+                onClose: { NSApplication.shared.terminate(nil) }
+            )
+            .ignoresSafeArea(edges: .top)
 
             // Main controls section.
             SectionPanel(

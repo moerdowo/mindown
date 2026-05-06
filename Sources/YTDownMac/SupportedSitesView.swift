@@ -13,11 +13,15 @@ struct SupportedSitesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // leadingInset 76 keeps the title clear of the macOS
-            // close/min/zoom traffic lights, which are the only window
-            // controls we draw on this window.
-            WindowChromeTitleBar(title: "SUPPORTED SITES", leadingInset: 76)
-                .ignoresSafeArea(edges: .top)
+            // Custom _ □ X buttons replace the macOS traffic lights, matching
+            // the main window's chrome. onClose closes only this window.
+            WindowChromeTitleBar(
+                title: "SUPPORTED SITES",
+                onMinimize: { NSApp.keyWindow?.miniaturize(nil) },
+                onZoom: { NSApp.keyWindow?.zoom(nil) },
+                onClose: { NSApp.keyWindow?.close() }
+            )
+            .ignoresSafeArea(edges: .top)
 
             SectionPanel(
                 header: {
@@ -105,14 +109,57 @@ struct SupportedSitesView: View {
             let text = loadFromBundle() ?? loadFromYtDlp() ?? "Could not load supported sites list."
             let split = text
                 .split(whereSeparator: { $0 == "\n" || $0 == "\r" })
-                .map { String($0) }
-                .filter { !$0.isEmpty }
+                .map(String.init)
+                .compactMap(cleanMarkdownLine)
             DispatchQueue.main.async {
                 self.rawText = text
                 self.lines = split
                 self.isLoading = false
             }
         }
+    }
+
+    /// Strip the markdown noise out of a line from supportedsites.md so the
+    /// list reads as plain text. Returns nil for headers, intro paragraphs,
+    /// and blank lines so we only keep the actual extractor entries.
+    private func cleanMarkdownLine(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { return nil }
+        if trimmed.hasPrefix("#") { return nil }              // headings
+        if !trimmed.hasPrefix("-") && !trimmed.hasPrefix("*") {
+            return nil                                         // intro paragraphs
+        }
+
+        var s = trimmed
+        // drop the leading bullet marker
+        if let r = s.range(of: #"^[-*]\s+"#, options: .regularExpression) {
+            s.removeSubrange(r)
+        }
+        // [text](url) -> text
+        s = s.replacingOccurrences(
+            of: #"\[([^\]]+)\]\([^)]*\)"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        // **bold** -> bold
+        s = s.replacingOccurrences(
+            of: #"\*\*([^*]+)\*\*"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        // *italic* -> italic
+        s = s.replacingOccurrences(
+            of: #"\*([^*]+)\*"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        // `code` -> code
+        s = s.replacingOccurrences(of: "`", with: "")
+        // collapse any leftover double spaces
+        while s.contains("  ") {
+            s = s.replacingOccurrences(of: "  ", with: " ")
+        }
+        return s.trimmingCharacters(in: .whitespaces)
     }
 
     private func loadFromBundle() -> String? {

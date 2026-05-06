@@ -246,9 +246,11 @@ struct WindowChromeTitleBar: View {
                 }
             }
             .padding(.leading, 8 + leadingInset)
-            .padding(.trailing, 6)
+            // Trailing padding kept large enough that the rightmost button
+            // does not get clipped by the window's rounded top-right corner.
+            .padding(.trailing, 12)
         }
-        .frame(height: 22)
+        .frame(height: 26)
         .overlay(BevelOverlay(inset: false))
     }
 }
