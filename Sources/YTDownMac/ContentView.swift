@@ -12,7 +12,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            WinampTitleBar(title: "YTDOWN ◇ WINAMP-EDITION", onSettings: {
+            WinampTitleBar(title: "YTDOWN", onSettings: {
                 showSettings = true
             })
 
@@ -28,11 +28,12 @@ struct ContentView: View {
 
             // Queue / playlist section.
             BeveledPanel(fill: WinampPalette.panelDark) {
-                VStack(spacing: 4) {
+                VStack(spacing: 8) {
                     queueHeader
                     Divider().background(WinampPalette.bevelDark)
                     queueList
                 }
+                .padding(6)
             }
             .padding(.horizontal, 8)
             .padding(.bottom, 8)
@@ -135,20 +136,34 @@ struct ContentView: View {
     }
 
     private var queueHeader: some View {
-        HStack {
-            LCDText(text: "♪ DOWNLOAD QUEUE", color: WinampPalette.lcdGreen, size: 11)
-            Spacer()
-            LCDText(
-                text: "\(manager.queue.count) ITEMS",
-                color: WinampPalette.lcdGreenDim,
-                size: 10
-            )
+        HStack(spacing: 14) {
+            LCDText(text: "♪ DOWNLOAD QUEUE", color: WinampPalette.lcdGreen, size: 12)
+            Spacer(minLength: 12)
+            LCDPanel {
+                LCDText(
+                    text: queueCountText,
+                    color: WinampPalette.lcdAmber,
+                    size: 10
+                )
+            }
+            .frame(minWidth: 110, maxWidth: 140)
+            .frame(height: 20)
+
             Button("CLR DONE") {
                 manager.clearCompleted()
             }
-            .buttonStyle(WinampButtonStyle(minWidth: 70, height: 18))
+            .buttonStyle(WinampButtonStyle(minWidth: 80, height: 22))
         }
         .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+    }
+
+    private var queueCountText: String {
+        let total = manager.queue.count
+        let active = manager.queue.reduce(into: 0) { acc, item in
+            if case .running = item.status { acc += 1 }
+        }
+        return "\(active) ACTIVE / \(total) TOTAL"
     }
 
     private var queueList: some View {
@@ -240,7 +255,7 @@ struct QueueRow: View {
 
     var body: some View {
         BeveledPanel(inset: true, fill: WinampPalette.lcdBackground) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     LED(color: ledColor, on: item.status == .running || item.status == .completed)
                     LCDText(text: item.title, color: WinampPalette.lcdGreen, size: 11)
@@ -250,11 +265,16 @@ struct QueueRow: View {
                     LCDText(text: item.status.label, color: ledColor, size: 10)
                 }
 
-                WinampProgressBar(progress: item.progress, color: ledColor)
-                    .frame(height: 8)
+                HStack(spacing: 8) {
+                    WinampProgressBar(progress: item.progress, color: ledColor)
+                        .frame(height: 12)
+                    LCDPanel {
+                        LCDText(text: percentText, color: ledColor, size: 14)
+                    }
+                    .frame(width: 72, height: 22)
+                }
 
-                HStack(spacing: 12) {
-                    LCDText(text: percentText, color: WinampPalette.lcdGreen, size: 10)
+                HStack(spacing: 14) {
                     LCDText(text: "▼ \(item.speed.isEmpty ? "—" : item.speed)",
                             color: WinampPalette.lcdGreenDim, size: 10)
                     LCDText(text: "ETA \(item.eta.isEmpty ? "—" : item.eta)",
@@ -269,7 +289,7 @@ struct QueueRow: View {
                 }
             }
         }
-        .padding(.vertical, 1)
+        .padding(.vertical, 2)
     }
 
     private var percentText: String {

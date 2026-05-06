@@ -11,7 +11,7 @@ struct YTDownMacApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("YTDown — Winamp Edition") {
+        WindowGroup("YTDown") {
             ContentView()
                 .environmentObject(manager)
                 .environmentObject(settings)

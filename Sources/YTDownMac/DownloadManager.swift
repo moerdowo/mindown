@@ -7,15 +7,39 @@ final class DownloadManager: ObservableObject {
     @Published var queue: [DownloadItem] = []
     @Published var lastError: String? = nil
 
+    /// Cap on concurrent yt-dlp processes. Extras stay queued and start as slots free up.
+    let maxConcurrent: Int = 5
+
     private var processes: [UUID: Process] = [:]
 
-    /// Adds a new item and starts it immediately (one process per item — yt-dlp handles its own throttling).
+    /// Add a new item to the queue. It starts immediately if a slot is free,
+    /// otherwise waits in FIFO order until an in-flight download finishes.
     func enqueue(url: String, format: MediaFormat, quality: Quality) {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let item = DownloadItem(url: trimmed, format: format, quality: quality)
         queue.insert(item, at: 0)
-        start(item)
+        pumpQueue()
+    }
+
+    private var runningCount: Int {
+        queue.reduce(into: 0) { acc, item in
+            if case .running = item.status { acc += 1 }
+        }
+    }
+
+    /// Start as many queued items as the concurrency cap allows, oldest first.
+    private func pumpQueue() {
+        var slots = maxConcurrent - runningCount
+        guard slots > 0 else { return }
+        let waiting = queue
+            .filter { if case .queued = $0.status { return true } else { return false } }
+            .sorted { $0.createdAt < $1.createdAt }
+        for item in waiting {
+            if slots <= 0 { break }
+            start(item)
+            slots -= 1
+        }
     }
 
     func cancel(_ item: DownloadItem) {
@@ -209,6 +233,7 @@ final class DownloadManager: ObservableObject {
 
     private func handleTermination(_ proc: Process, item: DownloadItem) {
         processes.removeValue(forKey: item.id)
+        defer { pumpQueue() }
         if case .canceled = item.status { return }
         if proc.terminationStatus == 0 {
             item.progress = 1.0
