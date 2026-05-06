@@ -1,13 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build a release binary and wrap it in YTDown.app so it behaves like a normal
-# macOS application (dock icon, menu bar, window focus).
+# Build a release binary, download yt-dlp + a static ffmpeg, and bundle the
+# whole lot into YTDown.app so end users get a fully self-contained download
+# without having to install yt-dlp or ffmpeg separately.
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="YTDown"
 BUNDLE_ID="com.local.ytdown"
 APP_DIR="$ROOT/$APP_NAME.app"
+BIN_CACHE="$ROOT/.bin-cache"
+
+# Pinned upstream sources.
+YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+
+ARCH="$(uname -m)"
+case "$ARCH" in
+    arm64)  FFMPEG_ASSET="ffmpeg-darwin-arm64" ;;
+    x86_64) FFMPEG_ASSET="ffmpeg-darwin-x64"   ;;
+    *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
+esac
+FFMPEG_VERSION="b6.1.1"
+FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/download/${FFMPEG_VERSION}/${FFMPEG_ASSET}"
+
+mkdir -p "$BIN_CACHE"
+
+fetch_if_missing() {
+    local out="$1" url="$2" name="$3"
+    if [[ -x "$out" && -s "$out" ]]; then
+        echo "==> Using cached $name ($(du -h "$out" | cut -f1))"
+        return
+    fi
+    echo "==> Downloading $name from $url"
+    curl --fail --location --progress-bar -o "$out.tmp" "$url"
+    mv "$out.tmp" "$out"
+    chmod +x "$out"
+}
+
+fetch_if_missing "$BIN_CACHE/yt-dlp" "$YTDLP_URL" "yt-dlp"
+fetch_if_missing "$BIN_CACHE/ffmpeg" "$FFMPEG_URL" "ffmpeg ($FFMPEG_ASSET)"
 
 echo "==> Building release binary"
 swift build -c release
@@ -21,10 +52,14 @@ fi
 echo "==> Assembling $APP_DIR"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
-mkdir -p "$APP_DIR/Contents/Resources"
+mkdir -p "$APP_DIR/Contents/Resources/bin"
 
 cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$APP_NAME"
 chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
+
+cp "$BIN_CACHE/yt-dlp"  "$APP_DIR/Contents/Resources/bin/yt-dlp"
+cp "$BIN_CACHE/ffmpeg"  "$APP_DIR/Contents/Resources/bin/ffmpeg"
+chmod +x "$APP_DIR/Contents/Resources/bin/"*
 
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -46,7 +81,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
+    <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSApplicationCategoryType</key>
@@ -55,5 +90,16 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-echo "==> Built $APP_DIR"
+# Ad-hoc sign the bundled binaries and the app itself. Apple Silicon refuses
+# to execute unsigned binaries even from inside an unsigned bundle, so this
+# step is required for the bundled yt-dlp/ffmpeg to launch on first run.
+echo "==> Ad-hoc signing bundled binaries"
+codesign --force --sign - "$APP_DIR/Contents/Resources/bin/yt-dlp"   2>/dev/null || true
+codesign --force --sign - "$APP_DIR/Contents/Resources/bin/ffmpeg"   2>/dev/null || true
+codesign --force --deep --sign - "$APP_DIR" 2>/dev/null || true
+
+# Strip any quarantine xattrs (no-op for locally produced files, but cheap insurance).
+xattr -cr "$APP_DIR" 2>/dev/null || true
+
+echo "==> Built $APP_DIR ($(du -sh "$APP_DIR" | cut -f1))"
 echo "Run with: open \"$APP_DIR\""

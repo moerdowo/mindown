@@ -1,5 +1,6 @@
 .build/
 .swiftpm/
+.bin-cache/
 Package.resolved
 *.xcodeproj
 *.xcworkspace

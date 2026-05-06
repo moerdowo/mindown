@@ -45,7 +45,19 @@ final class AppSettings: ObservableObject {
             ?? AppSettings.detectExecutable(["ffmpeg"]) ?? ""
     }
 
+    /// Look up an executable by name. Bundled copies inside
+    /// `YTDown.app/Contents/Resources/bin/` win over anything on the host,
+    /// so end users get a fully self-contained binary with no terminal
+    /// install required.
     static func detectExecutable(_ names: [String]) -> String? {
+        if let resourcePath = Bundle.main.resourcePath {
+            for name in names {
+                let bundled = (resourcePath as NSString).appendingPathComponent("bin/\(name)")
+                if FileManager.default.isExecutableFile(atPath: bundled) {
+                    return bundled
+                }
+            }
+        }
         let searchPaths = [
             "/opt/homebrew/bin",
             "/usr/local/bin",

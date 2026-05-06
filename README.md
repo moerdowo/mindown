@@ -18,14 +18,13 @@ Powered by [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) under the hood.
 
 ## Requirements
 
-You need `yt-dlp` and `ffmpeg` on the host. The easiest way:
+End users need **nothing**. `yt-dlp` and a static `ffmpeg` are bundled inside
+the `.app` and used automatically.
 
-```bash
-brew install yt-dlp ffmpeg
-```
-
-The app auto-detects them from `/opt/homebrew/bin` and `/usr/local/bin`.
-You can override the paths in **PREFS** if you keep them elsewhere.
+If you'd rather point at a system install (eg `brew install yt-dlp ffmpeg`),
+open **PREFS** and override the paths — the app falls back to `$PATH`-style
+auto-detection from `/opt/homebrew/bin` and `/usr/local/bin` when nothing is
+bundled.
 
 ## Build
 
@@ -34,7 +33,16 @@ You can override the paths in **PREFS** if you keep them elsewhere.
 open YTDown.app
 ```
 
-This produces a self-contained `YTDown.app` bundle next to the project.
+The build script:
+1. Downloads `yt-dlp_macos` from the official yt-dlp release
+2. Downloads a static `ffmpeg` matching your Mac's architecture
+   (`darwin-arm64` on Apple Silicon, `darwin-x64` on Intel)
+3. Caches both under `.bin-cache/` so subsequent builds are quick
+4. Compiles the Swift app, assembles `YTDown.app`, copies the binaries into
+   `Contents/Resources/bin/`, and ad-hoc-signs everything
+
+The resulting `.app` is self-contained — drop it anywhere, no terminal install
+needed.
 
 ## Develop
 
