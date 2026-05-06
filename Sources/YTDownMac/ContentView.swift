@@ -4,6 +4,8 @@ import AppKit
 struct ContentView: View {
     @EnvironmentObject var manager: DownloadManager
     @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var aiSettings: AISettings
+    @EnvironmentObject var chatVM: ChatViewModel
     @Environment(\.openWindow) private var openWindow
 
     @State private var url: String = ""
@@ -18,6 +20,26 @@ struct ContentView: View {
             WindowChromeTitleBar(title: "YTDOWN", leadingInset: 76)
                 .ignoresSafeArea(edges: .top)
 
+            HStack(spacing: 0) {
+                mainPane
+                    .frame(maxWidth: .infinity)
+                if aiSettings.sidebarVisible {
+                    AIChatView(vm: chatVM)
+                        .environmentObject(aiSettings)
+                        .frame(width: 360)
+                }
+            }
+
+            footerBar
+        }
+        .background(WinampPalette.panelChrome)
+        .sheet(isPresented: $showSettings) {
+            SettingsView().environmentObject(settings)
+        }
+    }
+
+    private var mainPane: some View {
+        VStack(spacing: 0) {
             // Main controls section.
             SectionPanel(
                 header: { SectionHeader(title: "YTDOWN MAIN") },
@@ -37,12 +59,6 @@ struct ContentView: View {
                 },
                 content: { queueList }
             )
-
-            footerBar
-        }
-        .background(WinampPalette.panelChrome)
-        .sheet(isPresented: $showSettings) {
-            SettingsView().environmentObject(settings)
         }
     }
 
@@ -182,6 +198,14 @@ struct ContentView: View {
                         : WinampPalette.lcdGreenDim,
                     size: 10
                 )
+                Button(aiSettings.sidebarVisible ? "AI ▶" : "AI ◀") {
+                    aiSettings.sidebarVisible.toggle()
+                }
+                .buttonStyle(WinampButtonStyle(
+                    tint: aiSettings.sidebarVisible ? WinampPalette.panelLight : WinampPalette.panelMid,
+                    labelColor: aiSettings.sidebarVisible ? WinampPalette.lcdGreen : WinampPalette.textBright,
+                    minWidth: 56, height: 18
+                ))
                 Button("SITES") { openSupportedSites() }
                     .buttonStyle(WinampButtonStyle(minWidth: 56, height: 18))
                 Button("PREFS") { showSettings = true }

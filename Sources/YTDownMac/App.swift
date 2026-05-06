@@ -3,11 +3,18 @@ import AppKit
 
 @main
 struct YTDownMacApp: App {
-    @StateObject private var manager = DownloadManager()
-    @StateObject private var settings = AppSettings.shared
+    @StateObject private var manager: DownloadManager
+    @StateObject private var settings: AppSettings
+    @StateObject private var aiSettings: AISettings
+    @StateObject private var chatVM: ChatViewModel
 
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
+        let mgr = DownloadManager()
+        _manager   = StateObject(wrappedValue: mgr)
+        _settings  = StateObject(wrappedValue: AppSettings.shared)
+        _aiSettings = StateObject(wrappedValue: AISettings.shared)
+        _chatVM    = StateObject(wrappedValue: ChatViewModel(manager: mgr))
     }
 
     var body: some Scene {
@@ -15,7 +22,13 @@ struct YTDownMacApp: App {
             ContentView()
                 .environmentObject(manager)
                 .environmentObject(settings)
-                .frame(minWidth: 620, idealWidth: 720, minHeight: 380, idealHeight: 460)
+                .environmentObject(aiSettings)
+                .environmentObject(chatVM)
+                .frame(
+                    minWidth: aiSettings.sidebarVisible ? 980 : 620,
+                    idealWidth: aiSettings.sidebarVisible ? 1080 : 720,
+                    minHeight: 420, idealHeight: 520
+                )
                 .ignoresSafeArea(.all)
                 .focusEffectDisabled()
                 .background(WindowAccessor { window in
