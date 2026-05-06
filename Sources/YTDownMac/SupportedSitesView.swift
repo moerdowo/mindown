@@ -13,15 +13,10 @@ struct SupportedSitesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Custom _ □ X buttons replace the macOS traffic lights, matching
-            // the main window's chrome. onClose closes only this window.
-            WindowChromeTitleBar(
-                title: "SUPPORTED SITES",
-                onMinimize: { NSApp.keyWindow?.miniaturize(nil) },
-                onZoom: { NSApp.keyWindow?.zoom(nil) },
-                onClose: { NSApp.keyWindow?.close() }
-            )
-            .ignoresSafeArea(edges: .top)
+            // Standard macOS close/min/zoom buttons sit on the left at native
+            // positions; leadingInset 76 keeps the title clear of them.
+            WindowChromeTitleBar(title: "SUPPORTED SITES", leadingInset: 76)
+                .ignoresSafeArea(edges: .top)
 
             SectionPanel(
                 header: {
