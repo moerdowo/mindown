@@ -20,6 +20,7 @@ struct YTDownMacApp: App {
                 .background(WindowAccessor { window in
                     window.titlebarAppearsTransparent = true
                     window.titleVisibility = .hidden
+                    window.titlebarSeparatorStyle = .none
                     window.styleMask.insert(.fullSizeContentView)
                     window.isMovableByWindowBackground = true
                     window.backgroundColor = NSColor(WinampPalette.windowBackground)
@@ -31,6 +32,7 @@ struct YTDownMacApp: App {
                     disableFocusRings(on: window.contentView)
                 })
         }
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .appInfo) {
