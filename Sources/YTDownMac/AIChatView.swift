@@ -50,19 +50,9 @@ struct AIChatView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     if vm.messages.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            LCDText(text: "ask me to download a song.",
-                                    color: WinampPalette.lcdGreenDim, size: 11)
-                            LCDText(text: "examples:",
-                                    color: WinampPalette.lcdGreenDim, size: 10)
-                            LCDText(text: "• \"anti-hero by taylor swift\"",
-                                    color: WinampPalette.lcdGreen, size: 10)
-                            LCDText(text: "• \"top 5 radiohead songs\"",
-                                    color: WinampPalette.lcdGreen, size: 10)
-                            LCDText(text: "• \"rick astley music video as mp4\"",
-                                    color: WinampPalette.lcdGreen, size: 10)
-                        }
-                        .padding(.vertical, 12)
+                        LCDText(text: "ask me to download a song.",
+                                color: WinampPalette.lcdGreenDim, size: 11)
+                            .padding(.vertical, 12)
                     }
                     ForEach(vm.messages) { msg in
                         ChatBubble(message: msg, vm: vm)
