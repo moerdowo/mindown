@@ -15,13 +15,15 @@ struct YTDownMacApp: App {
             ContentView()
                 .environmentObject(manager)
                 .environmentObject(settings)
-                .frame(minWidth: 560, idealWidth: 620, minHeight: 420, idealHeight: 520)
+                .frame(minWidth: 620, idealWidth: 720, minHeight: 600, idealHeight: 720)
+                .focusEffectDisabled()
                 .background(WindowAccessor { window in
                     window.titlebarAppearsTransparent = true
                     window.titleVisibility = .hidden
                     window.styleMask.insert(.fullSizeContentView)
                     window.isMovableByWindowBackground = true
                     window.backgroundColor = NSColor(WinampPalette.windowBackground)
+                    disableFocusRings(on: window.contentView)
                 })
         }
         .windowResizability(.contentSize)
@@ -47,4 +49,19 @@ private struct WindowAccessor: NSViewRepresentable {
         return view
     }
     func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+/// Walks the AppKit view tree and turns off the focus ring on every control,
+/// catching anything SwiftUI's `.focusEffectDisabled()` doesn't reach.
+private func disableFocusRings(on view: NSView?) {
+    guard let view else { return }
+    if let control = view as? NSControl {
+        control.focusRingType = .none
+    }
+    if let textView = view as? NSTextView {
+        textView.focusRingType = .none
+    }
+    for sub in view.subviews {
+        disableFocusRings(on: sub)
+    }
 }

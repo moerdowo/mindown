@@ -186,7 +186,7 @@ struct ContentView: View {
             }
             .padding(4)
         }
-        .frame(minHeight: 180)
+        .frame(minHeight: 260)
     }
 
     private var footerBar: some View {
