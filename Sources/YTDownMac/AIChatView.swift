@@ -50,7 +50,7 @@ struct AIChatView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     if vm.messages.isEmpty {
-                        LCDText(text: "ask me to download a song.",
+                        LCDText(text: "ask me to download a song or a video",
                                 color: WinampPalette.lcdGreenDim, size: 11)
                             .padding(.vertical, 12)
                     }
