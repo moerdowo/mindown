@@ -175,8 +175,11 @@ private struct BevelOverlay: View {
 }
 
 /// Custom title bar drawn inside the window, styled like the classic Winamp blue gradient.
+/// `leadingInset` lets the host clear the macOS traffic-light buttons on the main window;
+/// sheets and panels can leave it at the default to push the title fully to the left edge.
 struct WinampTitleBar: View {
     var title: String
+    var leadingInset: CGFloat = 0
     var onSettings: () -> Void
     var body: some View {
         ZStack {
@@ -185,19 +188,15 @@ struct WinampTitleBar: View {
                 startPoint: .top, endPoint: .bottom
             )
             HStack(spacing: 6) {
-                ForEach(0..<8, id: \.self) { i in
-                    Rectangle()
-                        .fill(i.isMultiple(of: 2) ? WinampPalette.bevelLight.opacity(0.6) : WinampPalette.bevelDark.opacity(0.7))
-                        .frame(width: 2, height: 2)
-                }
-                LCDText(text: title, color: WinampPalette.lcdGreen, size: 10)
+                LCDText(text: title, color: WinampPalette.lcdGreen, size: 12)
                 Spacer()
                 Button(action: onSettings) {
                     LCDText(text: "PREFS", color: WinampPalette.lcdAmber, size: 10)
                 }
                 .buttonStyle(WinampButtonStyle(minWidth: 56, height: 16))
             }
-            .padding(.horizontal, 8)
+            .padding(.leading, 8 + leadingInset)
+            .padding(.trailing, 8)
         }
         .frame(height: 22)
         .overlay(BevelOverlay(inset: false))

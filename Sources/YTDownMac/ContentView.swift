@@ -12,7 +12,8 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            WinampTitleBar(title: "YTDOWN", onSettings: {
+            // leadingInset of 76 clears the macOS traffic lights so YTDOWN sits flush left.
+            WinampTitleBar(title: "YTDOWN", leadingInset: 76, onSettings: {
                 showSettings = true
             })
 
@@ -29,11 +30,12 @@ struct ContentView: View {
             // Queue / playlist section.
             BeveledPanel(fill: WinampPalette.panelDark) {
                 VStack(spacing: 8) {
-                    queueHeader
-                    Divider().background(WinampPalette.bevelDark)
+                    BeveledPanel(inset: true, fill: WinampPalette.lcdBackground) {
+                        queueHeader
+                    }
                     queueList
                 }
-                .padding(6)
+                .padding(8)
             }
             .padding(.horizontal, 8)
             .padding(.bottom, 8)
