@@ -193,24 +193,19 @@ struct LED: View {
     }
 }
 
-/// Vertical-bar progress display, classic Winamp time slider feel.
+/// Classic Winamp time-slider feel: black recessed track with a green fill
+/// rectangle whose width tracks the progress value (0.0 ... 1.0).
 struct WinampProgressBar: View {
-    var progress: Double // 0.0 ... 1.0
+    var progress: Double
     var color: Color = WinampPalette.lcdGreen
     var body: some View {
         GeometryReader { geo in
+            let clamped = CGFloat(max(0, min(1, progress)))
             ZStack(alignment: .leading) {
-                WinampPalette.lcdBackground
-                let count = max(1, Int(geo.size.width / 4))
-                let filled = Int(Double(count) * max(0, min(1, progress)))
-                HStack(spacing: 1) {
-                    ForEach(0..<count, id: \.self) { i in
-                        Rectangle()
-                            .fill(i < filled ? color : color.opacity(0.10))
-                            .frame(width: 3)
-                    }
-                }
-                .padding(.horizontal, 1)
+                Rectangle().fill(WinampPalette.lcdBackground)
+                Rectangle()
+                    .fill(color)
+                    .frame(width: geo.size.width * clamped)
             }
             .overlay(BevelOverlay(inset: true))
         }

@@ -16,6 +16,7 @@ struct YTDownMacApp: App {
                 .environmentObject(manager)
                 .environmentObject(settings)
                 .frame(minWidth: 620, idealWidth: 720, minHeight: 600, idealHeight: 720)
+                .ignoresSafeArea(.all)
                 .focusEffectDisabled()
                 .background(WindowAccessor { window in
                     window.titlebarAppearsTransparent = true

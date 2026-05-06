@@ -19,15 +19,11 @@ struct ContentView: View {
                 onZoom: { NSApp.keyWindow?.zoom(nil) },
                 onClose: { NSApplication.shared.terminate(nil) }
             )
+            .ignoresSafeArea(edges: .top)
 
             // Main controls section.
             SectionPanel(
-                header: {
-                    SectionHeader(title: "YTDOWN MAIN") {
-                        Button("PREFS") { showSettings = true }
-                            .buttonStyle(WinampButtonStyle(minWidth: 50, height: 16))
-                    }
-                },
+                header: { SectionHeader(title: "YTDOWN MAIN") },
                 content: { mainControls }
             )
 
@@ -74,7 +70,8 @@ struct ContentView: View {
                 TextField(
                     "",
                     text: $url,
-                    prompt: Text("paste youtube url…").foregroundColor(WinampPalette.lcdGreenDim)
+                    prompt: Text("paste url from YouTube, X, TikTok, Instagram, Vimeo, Twitch, Facebook, Reddit, SoundCloud + 1900 more sites…")
+                        .foregroundColor(WinampPalette.lcdGreenDim)
                 )
                 .textFieldStyle(.plain)
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -85,8 +82,14 @@ struct ContentView: View {
             .frame(height: 22)
             .overlay(BevelOverlay(inset: true))
 
-            Button("PASTE", action: pasteFromClipboard)
-                .buttonStyle(WinampButtonStyle(minWidth: 52, height: 22))
+            Button(action: submit) { Text("DOWNLOAD") }
+                .buttonStyle(WinampButtonStyle(
+                    tint: WinampPalette.panelLight,
+                    labelColor: WinampPalette.lcdGreen,
+                    minWidth: 96, height: 22
+                ))
+                .disabled(url.trimmingCharacters(in: .whitespaces).isEmpty)
+                .opacity(url.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
         }
     }
 
@@ -114,17 +117,6 @@ struct ContentView: View {
             .frame(width: 110)
 
             Spacer()
-
-            Button(action: submit) {
-                Text("DOWNLOAD")
-            }
-            .buttonStyle(WinampButtonStyle(
-                tint: WinampPalette.panelLight,
-                labelColor: WinampPalette.lcdGreen,
-                minWidth: 96, height: 22
-            ))
-            .disabled(url.trimmingCharacters(in: .whitespaces).isEmpty)
-            .opacity(url.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
         }
     }
 
@@ -187,21 +179,27 @@ struct ContentView: View {
                 )
                 Spacer()
                 LCDText(
-                    text: "MAX \(manager.maxConcurrent) PARALLEL",
-                    color: WinampPalette.lcdGreenDim, size: 10
-                )
-                LCDText(
-                    text: "  •  yt-dlp \(settings.ytDlpPath.isEmpty ? "MISSING" : "OK")  •  ffmpeg \(settings.ffmpegPath.isEmpty ? "MISSING" : "OK")",
+                    text: "MAX \(manager.maxConcurrent) PARALLEL  •  yt-dlp \(settings.ytDlpPath.isEmpty ? "MISSING" : "OK")  •  ffmpeg \(settings.ffmpegPath.isEmpty ? "MISSING" : "OK")",
                     color: (settings.ytDlpPath.isEmpty || settings.ffmpegPath.isEmpty)
                         ? WinampPalette.lcdRed
                         : WinampPalette.lcdGreenDim,
                     size: 10
                 )
+                Button("SITES") { openSupportedSites() }
+                    .buttonStyle(WinampButtonStyle(minWidth: 56, height: 18))
+                Button("PREFS") { showSettings = true }
+                    .buttonStyle(WinampButtonStyle(minWidth: 56, height: 18))
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
         }
-        .frame(height: 22)
+        .frame(height: 24)
         .overlay(BevelOverlay(inset: false))
+    }
+
+    private func openSupportedSites() {
+        if let url = URL(string: "https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // MARK: - Computed
@@ -227,12 +225,6 @@ struct ContentView: View {
         guard !trimmed.isEmpty else { return }
         manager.enqueue(url: trimmed, format: format, quality: quality)
         url = ""
-    }
-
-    private func pasteFromClipboard() {
-        if let s = NSPasteboard.general.string(forType: .string) {
-            url = s.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
     }
 
     private func pickDirectory() {
@@ -277,9 +269,10 @@ struct QueueRow: View {
                 HStack(spacing: 6) {
                     Spacer().frame(width: 26)
                     WinampProgressBar(progress: item.progress, color: ledColor)
-                        .frame(height: 8)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 12)
                     LCDText(text: secondaryText, color: WinampPalette.lcdGreenDim, size: 9)
-                        .frame(maxWidth: 220, alignment: .leading)
+                        .fixedSize()
                     rowButtons
                 }
             } else {
