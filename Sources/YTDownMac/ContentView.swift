@@ -83,7 +83,7 @@ struct ContentView: View {
                 TextField(
                     "",
                     text: $url,
-                    prompt: Text("paste url from YouTube, X, TikTok, Instagram, Vimeo, Twitch, Facebook, Reddit, SoundCloud + 1900 more sites…")
+                    prompt: Text("Paste video or audio url...")
                         .foregroundColor(WinampPalette.lcdGreenDim)
                 )
                 .textFieldStyle(.plain)
