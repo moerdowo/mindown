@@ -13,6 +13,7 @@ BIN_CACHE="$ROOT/.bin-cache"
 
 # Pinned upstream sources.
 YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+SITES_URL="https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/supportedsites.md"
 
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -26,19 +27,20 @@ FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/download/${FFMP
 mkdir -p "$BIN_CACHE"
 
 fetch_if_missing() {
-    local out="$1" url="$2" name="$3"
-    if [[ -x "$out" && -s "$out" ]]; then
+    local out="$1" url="$2" name="$3" mode="${4:-755}"
+    if [[ -s "$out" ]]; then
         echo "==> Using cached $name ($(du -h "$out" | cut -f1))"
         return
     fi
     echo "==> Downloading $name from $url"
     curl --fail --location --progress-bar -o "$out.tmp" "$url"
     mv "$out.tmp" "$out"
-    chmod +x "$out"
+    chmod "$mode" "$out"
 }
 
-fetch_if_missing "$BIN_CACHE/yt-dlp" "$YTDLP_URL" "yt-dlp"
-fetch_if_missing "$BIN_CACHE/ffmpeg" "$FFMPEG_URL" "ffmpeg ($FFMPEG_ASSET)"
+fetch_if_missing "$BIN_CACHE/yt-dlp"            "$YTDLP_URL" "yt-dlp"                 755
+fetch_if_missing "$BIN_CACHE/ffmpeg"            "$FFMPEG_URL" "ffmpeg ($FFMPEG_ASSET)" 755
+fetch_if_missing "$BIN_CACHE/supportedsites.md" "$SITES_URL"  "supported sites list"  644
 
 echo "==> Building release binary"
 swift build -c release
@@ -57,8 +59,9 @@ mkdir -p "$APP_DIR/Contents/Resources/bin"
 cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$APP_NAME"
 chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
 
-cp "$BIN_CACHE/yt-dlp"  "$APP_DIR/Contents/Resources/bin/yt-dlp"
-cp "$BIN_CACHE/ffmpeg"  "$APP_DIR/Contents/Resources/bin/ffmpeg"
+cp "$BIN_CACHE/yt-dlp"            "$APP_DIR/Contents/Resources/bin/yt-dlp"
+cp "$BIN_CACHE/ffmpeg"            "$APP_DIR/Contents/Resources/bin/ffmpeg"
+cp "$BIN_CACHE/supportedsites.md" "$APP_DIR/Contents/Resources/supportedsites.md"
 chmod +x "$APP_DIR/Contents/Resources/bin/"*
 
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST

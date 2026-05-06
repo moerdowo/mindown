@@ -4,6 +4,7 @@ import AppKit
 struct ContentView: View {
     @EnvironmentObject var manager: DownloadManager
     @EnvironmentObject var settings: AppSettings
+    @Environment(\.openWindow) private var openWindow
 
     @State private var url: String = ""
     @State private var format: MediaFormat = .mp4
@@ -12,14 +13,11 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Outer window chrome.
-            WindowChromeTitleBar(
-                title: "YTDOWN",
-                onMinimize: { NSApp.keyWindow?.miniaturize(nil) },
-                onZoom: { NSApp.keyWindow?.zoom(nil) },
-                onClose: { NSApplication.shared.terminate(nil) }
-            )
-            .ignoresSafeArea(edges: .top)
+            // Outer window chrome — leadingInset 76 keeps YTDOWN clear of the
+            // macOS close/min/zoom traffic lights, which we leave visible so
+            // users have familiar window controls.
+            WindowChromeTitleBar(title: "YTDOWN", leadingInset: 76)
+                .ignoresSafeArea(edges: .top)
 
             // Main controls section.
             SectionPanel(
@@ -161,7 +159,7 @@ struct ContentView: View {
             }
             .padding(2)
         }
-        .frame(minHeight: 240)
+        .frame(minHeight: 140)
     }
 
     private var footerBar: some View {
@@ -197,9 +195,7 @@ struct ContentView: View {
     }
 
     private func openSupportedSites() {
-        if let url = URL(string: "https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md") {
-            NSWorkspace.shared.open(url)
-        }
+        openWindow(id: "supported-sites")
     }
 
     // MARK: - Computed
@@ -248,57 +244,48 @@ struct QueueRow: View {
     let index: Int
 
     var body: some View {
-        VStack(spacing: 2) {
-            HStack(spacing: 6) {
+        ZStack(alignment: .leading) {
+            // Row's progress fill — a translucent green block whose width
+            // tracks the download progress, sitting behind the row content.
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(WinampPalette.lcdGreen.opacity(0.20))
+                    .frame(width: geo.size.width * CGFloat(progressFraction))
+            }
+
+            HStack(spacing: 8) {
                 LCDText(text: String(format: "%2d.", index),
                         color: titleColor, size: 11)
-                    .frame(width: 26, alignment: .trailing)
+                    .frame(width: 24, alignment: .trailing)
 
-                LCDText(text: item.title, color: titleColor, size: 11)
+                LCDText(text: displayTitle, color: titleColor, size: 11)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(1)
 
+                if showsProgress {
+                    LCDText(text: speedText,
+                            color: WinampPalette.lcdGreenDim, size: 9)
+                        .fixedSize()
+                }
+
                 LCDText(text: "[\(item.format.label) \(item.quality.label)]",
                         color: WinampPalette.lcdAmber, size: 10)
+                    .fixedSize()
 
                 LCDText(text: rightStatusText, color: ledColor, size: 11)
-                    .frame(width: 64, alignment: .trailing)
-            }
+                    .frame(width: 58, alignment: .trailing)
 
-            if showsProgress {
-                HStack(spacing: 6) {
-                    Spacer().frame(width: 26)
-                    WinampProgressBar(progress: item.progress, color: ledColor)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 12)
-                    LCDText(text: secondaryText, color: WinampPalette.lcdGreenDim, size: 9)
-                        .fixedSize()
-                    rowButtons
-                }
-            } else {
-                HStack(spacing: 6) {
-                    Spacer()
-                    rowButtons
-                }
+                rowButtons
             }
-
-            if case .failed(let msg) = item.status {
-                HStack {
-                    LCDText(text: "ERR ▶ \(msg)",
-                            color: WinampPalette.lcdRed, size: 9)
-                    Spacer()
-                }
-                .padding(.leading, 32)
-            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
         }
-        .padding(.vertical, 3)
-        .padding(.horizontal, 6)
         .background(rowBackground)
         .overlay(
             Rectangle()
-                .stroke(WinampPalette.bevelDark.opacity(0.6), lineWidth: 0.5)
-                .opacity(0.5)
+                .stroke(WinampPalette.bevelDark.opacity(0.5), lineWidth: 0.5)
         )
+        .help(helpText)
     }
 
     private var titleColor: Color {
@@ -338,11 +325,33 @@ struct QueueRow: View {
         }
     }
 
-    private var secondaryText: String {
+    private var displayTitle: String {
+        return item.title
+    }
+
+    private var progressFraction: Double {
+        if case .running = item.status { return max(0, min(1, item.progress)) }
+        return 0
+    }
+
+    private var speedText: String {
         let speed = item.speed.isEmpty ? "—" : item.speed
         let eta   = item.eta.isEmpty   ? "—" : item.eta
-        let size  = item.totalSize.isEmpty ? "—" : item.totalSize
-        return "▼ \(speed)  ETA \(eta)  SZ \(size)"
+        return "▼\(speed) ETA \(eta)"
+    }
+
+    private var helpText: String {
+        switch item.status {
+        case .running:
+            let speed = item.speed.isEmpty ? "—" : item.speed
+            let eta   = item.eta.isEmpty   ? "—" : item.eta
+            let size  = item.totalSize.isEmpty ? "—" : item.totalSize
+            return "Downloading: ▼\(speed)  ETA \(eta)  SZ \(size)"
+        case .completed: return item.outputPath.isEmpty ? "Done" : "Done • \(item.outputPath)"
+        case .queued:    return "Queued"
+        case .failed(let msg): return "Error: \(msg)"
+        case .canceled:  return "Canceled"
+        }
     }
 
     private var rowBackground: some View {

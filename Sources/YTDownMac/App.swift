@@ -15,7 +15,7 @@ struct YTDownMacApp: App {
             ContentView()
                 .environmentObject(manager)
                 .environmentObject(settings)
-                .frame(minWidth: 620, idealWidth: 720, minHeight: 600, idealHeight: 720)
+                .frame(minWidth: 620, idealWidth: 720, minHeight: 380, idealHeight: 460)
                 .ignoresSafeArea(.all)
                 .focusEffectDisabled()
                 .background(WindowAccessor { window in
@@ -25,11 +25,11 @@ struct YTDownMacApp: App {
                     window.styleMask.insert(.fullSizeContentView)
                     window.isMovableByWindowBackground = true
                     window.backgroundColor = NSColor(WinampPalette.windowBackground)
-                    // The fake _ □ X buttons in WindowChromeTitleBar replace the
-                    // standard traffic lights so we can put YTDOWN flush left.
-                    window.standardWindowButton(.closeButton)?.isHidden = true
-                    window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-                    window.standardWindowButton(.zoomButton)?.isHidden = true
+                    // Keep the standard macOS close/minimize/zoom buttons
+                    // visible so users have familiar window controls.
+                    window.standardWindowButton(.closeButton)?.isHidden = false
+                    window.standardWindowButton(.miniaturizeButton)?.isHidden = false
+                    window.standardWindowButton(.zoomButton)?.isHidden = false
                     disableFocusRings(on: window.contentView)
                 })
         }
@@ -42,6 +42,20 @@ struct YTDownMacApp: App {
                 }
             }
         }
+
+        Window("Supported Sites", id: "supported-sites") {
+            SupportedSitesView()
+                .background(WindowAccessor { window in
+                    window.titlebarAppearsTransparent = true
+                    window.titleVisibility = .hidden
+                    window.titlebarSeparatorStyle = .none
+                    window.styleMask.insert(.fullSizeContentView)
+                    window.isMovableByWindowBackground = true
+                    window.backgroundColor = NSColor(WinampPalette.windowBackground)
+                })
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 560, height: 520)
     }
 }
 

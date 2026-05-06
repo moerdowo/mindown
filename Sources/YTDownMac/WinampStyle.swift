@@ -212,15 +212,16 @@ struct WinampProgressBar: View {
     }
 }
 
-/// Outer window title bar — dark grey gradient with `YTDOWN` on the left and
-/// fake Windows-style `_ □ X` controls on the right that are wired to the
-/// real macOS window so they actually function.
+/// Outer window title bar — dark grey gradient with the title on the left.
+/// Pass `onClose` (and optionally `onMinimize` / `onZoom`) to draw fake
+/// Windows-style `_ □ X` controls on the right; leave them nil for the main
+/// window where the real macOS traffic lights provide those affordances.
 struct WindowChromeTitleBar: View {
     var title: String
     var leadingInset: CGFloat = 0
-    var onMinimize: () -> Void
-    var onZoom: () -> Void
-    var onClose: () -> Void
+    var onMinimize: (() -> Void)? = nil
+    var onZoom: (() -> Void)? = nil
+    var onClose: (() -> Void)? = nil
 
     var body: some View {
         ZStack {
@@ -231,12 +232,18 @@ struct WindowChromeTitleBar: View {
             HStack(spacing: 4) {
                 LCDText(text: title, color: WinampPalette.lcdGreen, size: 12)
                 Spacer()
-                Button(action: onMinimize) { Text("_") }
-                    .buttonStyle(WinampButtonStyle(minWidth: 22, height: 16))
-                Button(action: onZoom) { Text("□") }
-                    .buttonStyle(WinampButtonStyle(minWidth: 22, height: 16))
-                Button(action: onClose) { Text("X") }
-                    .buttonStyle(WinampButtonStyle(minWidth: 22, height: 16))
+                if let onMinimize {
+                    Button(action: onMinimize) { Text("_") }
+                        .buttonStyle(WinampButtonStyle(minWidth: 22, height: 16))
+                }
+                if let onZoom {
+                    Button(action: onZoom) { Text("□") }
+                        .buttonStyle(WinampButtonStyle(minWidth: 22, height: 16))
+                }
+                if let onClose {
+                    Button(action: onClose) { Text("X") }
+                        .buttonStyle(WinampButtonStyle(minWidth: 22, height: 16))
+                }
             }
             .padding(.leading, 8 + leadingInset)
             .padding(.trailing, 6)
