@@ -23,6 +23,11 @@ struct YTDownMacApp: App {
                     window.styleMask.insert(.fullSizeContentView)
                     window.isMovableByWindowBackground = true
                     window.backgroundColor = NSColor(WinampPalette.windowBackground)
+                    // The fake _ □ X buttons in WindowChromeTitleBar replace the
+                    // standard traffic lights so we can put YTDOWN flush left.
+                    window.standardWindowButton(.closeButton)?.isHidden = true
+                    window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+                    window.standardWindowButton(.zoomButton)?.isHidden = true
                     disableFocusRings(on: window.contentView)
                 })
         }

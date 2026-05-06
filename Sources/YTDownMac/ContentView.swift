@@ -12,70 +12,88 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // leadingInset of 76 clears the macOS traffic lights so YTDOWN sits flush left.
-            WinampTitleBar(title: "YTDOWN", leadingInset: 76, onSettings: {
-                showSettings = true
-            })
+            // Outer window chrome.
+            WindowChromeTitleBar(
+                title: "YTDOWN",
+                onMinimize: { NSApp.keyWindow?.miniaturize(nil) },
+                onZoom: { NSApp.keyWindow?.zoom(nil) },
+                onClose: { NSApplication.shared.terminate(nil) }
+            )
 
-            // Main control panel — URL + format + quality + GO.
-            BeveledPanel(fill: WinampPalette.panelMid) {
-                VStack(spacing: 8) {
-                    inputRow
-                    optionsRow
-                    statusRow
-                }
-            }
-            .padding(8)
-
-            // Queue / playlist section.
-            BeveledPanel(fill: WinampPalette.panelDark) {
-                VStack(spacing: 8) {
-                    BeveledPanel(inset: true, fill: WinampPalette.lcdBackground) {
-                        queueHeader
+            // Main controls section.
+            SectionPanel(
+                header: {
+                    SectionHeader(title: "YTDOWN MAIN") {
+                        Button("PREFS") { showSettings = true }
+                            .buttonStyle(WinampButtonStyle(minWidth: 50, height: 16))
                     }
-                    queueList
-                }
-                .padding(8)
-            }
-            .padding(.horizontal, 8)
-            .padding(.bottom, 8)
+                },
+                content: { mainControls }
+            )
+
+            // Playlist / queue section.
+            SectionPanel(
+                header: {
+                    SectionHeader(title: "YTDOWN PLAYLIST") {
+                        HStack(spacing: 6) {
+                            LCDText(text: queueCountText, color: WinampPalette.lcdAmber, size: 10)
+                            Button("CLR DONE") { manager.clearCompleted() }
+                                .buttonStyle(WinampButtonStyle(minWidth: 70, height: 16))
+                        }
+                    }
+                },
+                content: { queueList }
+            )
 
             footerBar
         }
-        .background(WinampPalette.windowBackground)
+        .background(WinampPalette.panelChrome)
         .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(settings)
+            SettingsView().environmentObject(settings)
         }
     }
 
     // MARK: - Sections
 
-    private var inputRow: some View {
+    private var mainControls: some View {
+        VStack(spacing: 6) {
+            urlRow
+            optionsRow
+            dirRow
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+    }
+
+    private var urlRow: some View {
         HStack(spacing: 6) {
-            LCDText(text: "URL", color: WinampPalette.lcdGreenDim, size: 11)
-                .frame(width: 30, alignment: .leading)
-            LCDPanel {
-                TextField("", text: $url, prompt: Text("paste youtube url…").foregroundColor(WinampPalette.lcdGreenDim))
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(WinampPalette.lcdGreen)
-                    .onSubmit(submit)
+            LCDText(text: "URL ", color: WinampPalette.lcdGreenDim, size: 11)
+                .frame(width: 38, alignment: .leading)
+            ZStack {
+                WinampPalette.lcdBackground
+                TextField(
+                    "",
+                    text: $url,
+                    prompt: Text("paste youtube url…").foregroundColor(WinampPalette.lcdGreenDim)
+                )
+                .textFieldStyle(.plain)
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundColor(WinampPalette.lcdGreen)
+                .padding(.horizontal, 6)
+                .onSubmit(submit)
             }
             .frame(height: 22)
+            .overlay(BevelOverlay(inset: true))
 
-            Button(action: pasteFromClipboard) {
-                Text("PASTE")
-            }
-            .buttonStyle(WinampButtonStyle(minWidth: 50, height: 22))
+            Button("PASTE", action: pasteFromClipboard)
+                .buttonStyle(WinampButtonStyle(minWidth: 52, height: 22))
         }
     }
 
     private var optionsRow: some View {
         HStack(spacing: 8) {
-            LCDText(text: "FMT", color: WinampPalette.lcdGreenDim, size: 11)
-                .frame(width: 30, alignment: .leading)
-
+            LCDText(text: "FMT ", color: WinampPalette.lcdGreenDim, size: 11)
+                .frame(width: 38, alignment: .leading)
             BeveledMenu(label: format.label) {
                 ForEach(MediaFormat.allCases) { f in
                     Button(f.label) {
@@ -88,7 +106,6 @@ struct ContentView: View {
             .frame(width: 80)
 
             LCDText(text: "QUAL", color: WinampPalette.lcdGreenDim, size: 11)
-
             BeveledMenu(label: quality.label) {
                 ForEach(Quality.qualities(for: format)) { q in
                     Button(q.label) { quality = q }
@@ -99,78 +116,42 @@ struct ContentView: View {
             Spacer()
 
             Button(action: submit) {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.down.circle.fill")
-                    Text("DOWNLOAD")
-                }
+                Text("DOWNLOAD")
             }
             .buttonStyle(WinampButtonStyle(
-                tint: WinampPalette.titlebarTop,
+                tint: WinampPalette.panelLight,
                 labelColor: WinampPalette.lcdGreen,
-                minWidth: 110, height: 26
+                minWidth: 96, height: 22
             ))
             .disabled(url.trimmingCharacters(in: .whitespaces).isEmpty)
             .opacity(url.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
         }
     }
 
-    private var statusRow: some View {
-        HStack(spacing: 8) {
-            LCDText(text: "DIR", color: WinampPalette.lcdGreenDim, size: 11)
-                .frame(width: 30, alignment: .leading)
-            LCDPanel {
+    private var dirRow: some View {
+        HStack(spacing: 6) {
+            LCDText(text: "DIR ", color: WinampPalette.lcdGreenDim, size: 11)
+                .frame(width: 38, alignment: .leading)
+            ZStack {
+                WinampPalette.lcdBackground
                 HStack {
-                    LCDText(
-                        text: settings.downloadDirectory.path,
-                        color: WinampPalette.lcdAmber,
-                        size: 11
-                    )
+                    LCDText(text: settings.downloadDirectory.path,
+                            color: WinampPalette.lcdAmber, size: 11)
                     Spacer()
                 }
+                .padding(.horizontal, 6)
             }
             .frame(height: 20)
+            .overlay(BevelOverlay(inset: true))
 
-            Button(action: pickDirectory) {
-                Text("BROWSE")
-            }
-            .buttonStyle(WinampButtonStyle(minWidth: 60, height: 20))
+            Button("BROWSE", action: pickDirectory)
+                .buttonStyle(WinampButtonStyle(minWidth: 60, height: 20))
         }
-    }
-
-    private var queueHeader: some View {
-        HStack(spacing: 14) {
-            LCDText(text: "♪ DOWNLOAD QUEUE", color: WinampPalette.lcdGreen, size: 12)
-            Spacer(minLength: 12)
-            LCDPanel {
-                LCDText(
-                    text: queueCountText,
-                    color: WinampPalette.lcdAmber,
-                    size: 10
-                )
-            }
-            .frame(minWidth: 110, maxWidth: 140)
-            .frame(height: 20)
-
-            Button("CLR DONE") {
-                manager.clearCompleted()
-            }
-            .buttonStyle(WinampButtonStyle(minWidth: 80, height: 22))
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
-    }
-
-    private var queueCountText: String {
-        let total = manager.queue.count
-        let active = manager.queue.reduce(into: 0) { acc, item in
-            if case .running = item.status { acc += 1 }
-        }
-        return "\(active) ACTIVE / \(total) TOTAL"
     }
 
     private var queueList: some View {
         ScrollView {
-            LazyVStack(spacing: 4) {
+            LazyVStack(spacing: 0) {
                 if manager.queue.isEmpty {
                     LCDText(
                         text: "≪ EMPTY ≫  add a url above and press DOWNLOAD",
@@ -180,21 +161,21 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 30)
                 } else {
-                    ForEach(manager.queue) { item in
-                        QueueRow(item: item)
+                    ForEach(Array(manager.queue.enumerated()), id: \.element.id) { idx, item in
+                        QueueRow(item: item, index: idx + 1)
                             .environmentObject(manager)
                     }
                 }
             }
-            .padding(4)
+            .padding(2)
         }
-        .frame(minHeight: 260)
+        .frame(minHeight: 240)
     }
 
     private var footerBar: some View {
         ZStack {
             LinearGradient(
-                colors: [WinampPalette.panelMid, WinampPalette.panelDark],
+                colors: [WinampPalette.titlebarTop, WinampPalette.titlebarBottom],
                 startPoint: .top, endPoint: .bottom
             )
             HStack(spacing: 8) {
@@ -206,19 +187,37 @@ struct ContentView: View {
                 )
                 Spacer()
                 LCDText(
-                    text: "yt-dlp \(settings.ytDlpPath.isEmpty ? "MISSING" : "OK")  •  ffmpeg \(settings.ffmpegPath.isEmpty ? "MISSING" : "OK")",
-                    color: (settings.ytDlpPath.isEmpty || settings.ffmpegPath.isEmpty) ? WinampPalette.lcdRed : WinampPalette.lcdGreenDim,
+                    text: "MAX \(manager.maxConcurrent) PARALLEL",
+                    color: WinampPalette.lcdGreenDim, size: 10
+                )
+                LCDText(
+                    text: "  •  yt-dlp \(settings.ytDlpPath.isEmpty ? "MISSING" : "OK")  •  ffmpeg \(settings.ffmpegPath.isEmpty ? "MISSING" : "OK")",
+                    color: (settings.ytDlpPath.isEmpty || settings.ffmpegPath.isEmpty)
+                        ? WinampPalette.lcdRed
+                        : WinampPalette.lcdGreenDim,
                     size: 10
                 )
             }
             .padding(.horizontal, 10)
         }
         .frame(height: 22)
-        .overlay(Rectangle().stroke(WinampPalette.bevelDark, lineWidth: 1))
+        .overlay(BevelOverlay(inset: false))
+    }
+
+    // MARK: - Computed
+
+    private var queueCountText: String {
+        let total = manager.queue.count
+        let active = manager.queue.reduce(into: 0) { acc, item in
+            if case .running = item.status { acc += 1 }
+        }
+        return "\(active) ACTIVE / \(total) TOTAL"
     }
 
     private var hasActive: Bool {
-        manager.queue.contains { if case .running = $0.status { return true } else { return false } }
+        manager.queue.contains {
+            if case .running = $0.status { return true } else { return false }
+        }
     }
 
     // MARK: - Actions
@@ -249,54 +248,74 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Queue row
+// MARK: - Queue row (single-line MINPAW playlist style)
 
 struct QueueRow: View {
     @ObservedObject var item: DownloadItem
     @EnvironmentObject var manager: DownloadManager
+    let index: Int
 
     var body: some View {
-        BeveledPanel(inset: true, fill: WinampPalette.lcdBackground) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    LED(color: ledColor, on: item.status == .running || item.status == .completed)
-                    LCDText(text: item.title, color: WinampPalette.lcdGreen, size: 11)
-                    Spacer()
-                    LCDText(text: "[\(item.format.label) · \(item.quality.label)]",
-                            color: WinampPalette.lcdAmber, size: 10)
-                    LCDText(text: item.status.label, color: ledColor, size: 10)
-                }
+        VStack(spacing: 2) {
+            HStack(spacing: 6) {
+                LCDText(text: String(format: "%2d.", index),
+                        color: titleColor, size: 11)
+                    .frame(width: 26, alignment: .trailing)
 
-                HStack(spacing: 8) {
+                LCDText(text: item.title, color: titleColor, size: 11)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(1)
+
+                LCDText(text: "[\(item.format.label) \(item.quality.label)]",
+                        color: WinampPalette.lcdAmber, size: 10)
+
+                LCDText(text: rightStatusText, color: ledColor, size: 11)
+                    .frame(width: 64, alignment: .trailing)
+            }
+
+            if showsProgress {
+                HStack(spacing: 6) {
+                    Spacer().frame(width: 26)
                     WinampProgressBar(progress: item.progress, color: ledColor)
-                        .frame(height: 12)
-                    LCDPanel {
-                        LCDText(text: percentText, color: ledColor, size: 14)
-                    }
-                    .frame(width: 72, height: 22)
+                        .frame(height: 8)
+                    LCDText(text: secondaryText, color: WinampPalette.lcdGreenDim, size: 9)
+                        .frame(maxWidth: 220, alignment: .leading)
+                    rowButtons
                 }
-
-                HStack(spacing: 14) {
-                    LCDText(text: "▼ \(item.speed.isEmpty ? "—" : item.speed)",
-                            color: WinampPalette.lcdGreenDim, size: 10)
-                    LCDText(text: "ETA \(item.eta.isEmpty ? "—" : item.eta)",
-                            color: WinampPalette.lcdGreenDim, size: 10)
-                    LCDText(text: "SZ \(item.totalSize.isEmpty ? "—" : item.totalSize)",
-                            color: WinampPalette.lcdGreenDim, size: 10)
+            } else {
+                HStack(spacing: 6) {
                     Spacer()
                     rowButtons
                 }
-                if case .failed(let msg) = item.status {
-                    LCDText(text: "ERR ▶ \(msg)", color: WinampPalette.lcdRed, size: 10)
+            }
+
+            if case .failed(let msg) = item.status {
+                HStack {
+                    LCDText(text: "ERR ▶ \(msg)",
+                            color: WinampPalette.lcdRed, size: 9)
+                    Spacer()
                 }
+                .padding(.leading, 32)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
+        .padding(.horizontal, 6)
+        .background(rowBackground)
+        .overlay(
+            Rectangle()
+                .stroke(WinampPalette.bevelDark.opacity(0.6), lineWidth: 0.5)
+                .opacity(0.5)
+        )
     }
 
-    private var percentText: String {
-        let p = Int((item.progress * 100).rounded())
-        return String(format: "%3d%%", p)
+    private var titleColor: Color {
+        switch item.status {
+        case .completed: return WinampPalette.lcdGreen
+        case .running:   return WinampPalette.lcdGreen
+        case .queued:    return WinampPalette.lcdGreenDim
+        case .failed:    return WinampPalette.lcdRed
+        case .canceled:  return WinampPalette.lcdGreenDim
+        }
     }
 
     private var ledColor: Color {
@@ -309,25 +328,59 @@ struct QueueRow: View {
         }
     }
 
+    private var showsProgress: Bool {
+        if case .running = item.status { return true }
+        return false
+    }
+
+    private var rightStatusText: String {
+        switch item.status {
+        case .running:
+            let pct = Int((item.progress * 100).rounded())
+            return String(format: "%3d%%", pct)
+        case .completed: return "DONE"
+        case .queued:    return "QUEUED"
+        case .failed:    return "FAIL"
+        case .canceled:  return "CXLD"
+        }
+    }
+
+    private var secondaryText: String {
+        let speed = item.speed.isEmpty ? "—" : item.speed
+        let eta   = item.eta.isEmpty   ? "—" : item.eta
+        let size  = item.totalSize.isEmpty ? "—" : item.totalSize
+        return "▼ \(speed)  ETA \(eta)  SZ \(size)"
+    }
+
+    private var rowBackground: some View {
+        Group {
+            if case .running = item.status {
+                WinampPalette.selectionBlue.opacity(0.55)
+            } else {
+                Color.clear
+            }
+        }
+    }
+
     @ViewBuilder
     private var rowButtons: some View {
         switch item.status {
         case .running, .queued:
             Button("STOP") { manager.cancel(item) }
-                .buttonStyle(WinampButtonStyle(minWidth: 44, height: 16))
+                .buttonStyle(WinampButtonStyle(minWidth: 42, height: 16))
         case .completed:
             Button("SHOW") { manager.revealInFinder(item) }
-                .buttonStyle(WinampButtonStyle(minWidth: 44, height: 16))
-            Button("DEL")  { manager.remove(item) }
+                .buttonStyle(WinampButtonStyle(minWidth: 42, height: 16))
+            Button("DEL") { manager.remove(item) }
                 .buttonStyle(WinampButtonStyle(minWidth: 36, height: 16))
         case .failed, .canceled:
-            Button("DEL")  { manager.remove(item) }
+            Button("DEL") { manager.remove(item) }
                 .buttonStyle(WinampButtonStyle(minWidth: 36, height: 16))
         }
     }
 }
 
-// MARK: - Beveled menu (looks like the rest of the chrome instead of a stock SwiftUI Menu).
+// MARK: - Beveled menu
 
 struct BeveledMenu<MenuContent: View>: View {
     var label: String
@@ -347,12 +400,7 @@ struct BeveledMenu<MenuContent: View>: View {
             .padding(.horizontal, 8)
             .frame(height: 22)
             .background(WinampPalette.lcdBackground)
-            .overlay(
-                Rectangle().stroke(WinampPalette.bevelDark, lineWidth: 1)
-            )
-            .overlay(
-                Rectangle().stroke(WinampPalette.bevelLight.opacity(0.4), lineWidth: 1).padding(1)
-            )
+            .overlay(BevelOverlay(inset: true))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)

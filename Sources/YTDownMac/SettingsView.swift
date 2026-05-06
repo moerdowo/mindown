@@ -7,70 +7,79 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            WinampTitleBar(title: "PREFERENCES", onSettings: { dismiss() })
+            WindowChromeTitleBar(
+                title: "PREFERENCES",
+                onMinimize: { dismiss() },
+                onZoom: { dismiss() },
+                onClose: { dismiss() }
+            )
 
-            BeveledPanel(fill: WinampPalette.panelMid) {
-                VStack(alignment: .leading, spacing: 12) {
-                    pathRow(
-                        label: "DL DIR",
-                        value: settings.downloadDirectory.path,
-                        action: pickDir
-                    )
-                    pathRow(
-                        label: "YT-DLP",
-                        value: settings.ytDlpPath.isEmpty ? "<not found>" : settings.ytDlpPath,
-                        action: { pickExecutable(for: \.ytDlpPath) }
-                    )
-                    pathRow(
-                        label: "FFMPEG",
-                        value: settings.ffmpegPath.isEmpty ? "<not found>" : settings.ffmpegPath,
-                        action: { pickExecutable(for: \.ffmpegPath) }
-                    )
+            SectionPanel(
+                header: { SectionHeader(title: "YTDOWN PREFS") },
+                content: {
+                    VStack(alignment: .leading, spacing: 10) {
+                        pathRow(
+                            label: "DL DIR",
+                            value: settings.downloadDirectory.path,
+                            action: pickDir
+                        )
+                        pathRow(
+                            label: "YT-DLP",
+                            value: settings.ytDlpPath.isEmpty ? "<not found>" : settings.ytDlpPath,
+                            action: { pickExecutable(for: \.ytDlpPath) }
+                        )
+                        pathRow(
+                            label: "FFMPEG",
+                            value: settings.ffmpegPath.isEmpty ? "<not found>" : settings.ffmpegPath,
+                            action: { pickExecutable(for: \.ffmpegPath) }
+                        )
 
-                    Divider().background(WinampPalette.bevelDark)
+                        LCDText(
+                            text: "yt-dlp powers downloads. ffmpeg merges audio/video and extracts MP3.",
+                            color: WinampPalette.lcdGreenDim,
+                            size: 10
+                        )
+                        LCDText(
+                            text: "install with:  brew install yt-dlp ffmpeg",
+                            color: WinampPalette.lcdAmber,
+                            size: 10
+                        )
 
-                    LCDText(
-                        text: "yt-dlp powers downloads. ffmpeg is required for MP3 and merged-audio MP4.",
-                        color: WinampPalette.lcdGreenDim,
-                        size: 10
-                    )
-                    LCDText(
-                        text: "install with: brew install yt-dlp ffmpeg",
-                        color: WinampPalette.lcdAmber,
-                        size: 10
-                    )
-
-                    Spacer(minLength: 0)
-                    HStack {
-                        Spacer()
-                        Button("OK") { dismiss() }
-                            .buttonStyle(WinampButtonStyle(
-                                tint: WinampPalette.titlebarTop,
-                                labelColor: WinampPalette.lcdGreen,
-                                minWidth: 80, height: 24
-                            ))
-                            .keyboardShortcut(.defaultAction)
+                        Spacer(minLength: 4)
+                        HStack {
+                            Spacer()
+                            Button("OK") { dismiss() }
+                                .buttonStyle(WinampButtonStyle(
+                                    tint: WinampPalette.panelLight,
+                                    labelColor: WinampPalette.lcdGreen,
+                                    minWidth: 80, height: 22
+                                ))
+                                .keyboardShortcut(.defaultAction)
+                        }
                     }
+                    .padding(10)
                 }
-            }
-            .padding(8)
+            )
         }
-        .frame(width: 540, height: 280)
-        .background(WinampPalette.windowBackground)
+        .frame(width: 560, height: 280)
+        .background(WinampPalette.panelChrome)
     }
 
     private func pathRow(label: String, value: String, action: @escaping () -> Void) -> some View {
         HStack(spacing: 6) {
             LCDText(text: label, color: WinampPalette.lcdGreenDim, size: 11)
-                .frame(width: 60, alignment: .leading)
-            LCDPanel {
+                .frame(width: 64, alignment: .leading)
+            ZStack {
+                WinampPalette.lcdBackground
                 HStack {
                     LCDText(text: value, color: WinampPalette.lcdGreen, size: 11)
                     Spacer()
                 }
+                .padding(.horizontal, 6)
             }
             .frame(height: 22)
-            Button("CHANGE") { action() }
+            .overlay(BevelOverlay(inset: true))
+            Button("CHANGE", action: action)
                 .buttonStyle(WinampButtonStyle(minWidth: 64, height: 22))
         }
     }
