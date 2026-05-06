@@ -46,7 +46,7 @@ final class AppSettings: ObservableObject {
     }
 
     /// Look up an executable by name. Bundled copies inside
-    /// `YTDown.app/Contents/Resources/bin/` win over anything on the host,
+    /// `Mindown.app/Contents/Resources/bin/` win over anything on the host,
     /// so end users get a fully self-contained binary with no terminal
     /// install required.
     static func detectExecutable(_ names: [String]) -> String? {

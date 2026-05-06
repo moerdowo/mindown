@@ -2,12 +2,12 @@
 set -euo pipefail
 
 # Build a release binary, download yt-dlp + a static ffmpeg, and bundle the
-# whole lot into YTDown.app so end users get a fully self-contained download
+# whole lot into Mindown.app so end users get a fully self-contained download
 # without having to install yt-dlp or ffmpeg separately.
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="YTDown"
-BUNDLE_ID="com.local.ytdown"
+APP_NAME="Mindown"
+BUNDLE_ID="com.local.mindown"
 APP_DIR="$ROOT/$APP_NAME.app"
 BIN_CACHE="$ROOT/.bin-cache"
 
@@ -45,7 +45,7 @@ fetch_if_missing "$BIN_CACHE/supportedsites.md" "$SITES_URL"  "supported sites l
 echo "==> Building release binary"
 swift build -c release
 
-BIN_PATH="$(swift build -c release --show-bin-path)/YTDownMac"
+BIN_PATH="$(swift build -c release --show-bin-path)/Mindown"
 if [[ ! -x "$BIN_PATH" ]]; then
     echo "Could not find built binary at $BIN_PATH" >&2
     exit 1

@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "YTDownMac",
+    name: "Mindown",
     platforms: [
         .macOS(.v14)
     ],
     targets: [
         .executableTarget(
-            name: "YTDownMac",
-            path: "Sources/YTDownMac"
+            name: "Mindown",
+            path: "Sources/Mindown"
         )
     ]
 )

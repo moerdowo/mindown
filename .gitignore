@@ -5,5 +5,5 @@ Package.resolved
 *.xcodeproj
 *.xcworkspace
 DerivedData/
-YTDown.app/
+Mindown.app/
 .DS_Store

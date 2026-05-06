@@ -202,7 +202,7 @@ final class ChatViewModel: ObservableObject {
 
     private func systemMessage() -> [String: Any] {
         let prompt = """
-        You are YTDown's media assistant. You help the user find and download \
+        You are Mindown's media assistant. You help the user find and download \
         songs and videos via the bundled yt-dlp.
 
         Workflow:

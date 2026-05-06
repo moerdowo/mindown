@@ -16,8 +16,8 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Standard macOS close/min/zoom buttons sit on the left at native
-            // positions; leadingInset 76 keeps YTDOWN clear of them.
-            WindowChromeTitleBar(title: "YTDOWN", leadingInset: 76)
+            // positions; leadingInset 76 keeps MINDOWN clear of them.
+            WindowChromeTitleBar(title: "MINDOWN", leadingInset: 76)
                 .ignoresSafeArea(edges: .top)
 
             HStack(spacing: 0) {
@@ -42,14 +42,14 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Main controls section.
             SectionPanel(
-                header: { SectionHeader(title: "YTDOWN MAIN") },
+                header: { SectionHeader(title: "MINDOWN MAIN") },
                 content: { mainControls }
             )
 
             // Playlist / queue section.
             SectionPanel(
                 header: {
-                    SectionHeader(title: "YTDOWN PLAYLIST") {
+                    SectionHeader(title: "MINDOWN PLAYLIST") {
                         HStack(spacing: 6) {
                             LCDText(text: queueCountText, color: WinampPalette.lcdAmber, size: 10)
                             Button("CLR DONE") { manager.clearCompleted() }

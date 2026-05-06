@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct YTDownMacApp: App {
+struct MindownApp: App {
     @StateObject private var manager: DownloadManager
     @StateObject private var settings: AppSettings
     @StateObject private var aiSettings: AISettings
@@ -18,7 +18,7 @@ struct YTDownMacApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("YTDown") {
+        WindowGroup("Mindown") {
             ContentView()
                 .environmentObject(manager)
                 .environmentObject(settings)
@@ -47,7 +47,7 @@ struct YTDownMacApp: App {
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("About YTDown") {
+                Button("About Mindown") {
                     NSApplication.shared.orderFrontStandardAboutPanel(nil)
                 }
             }

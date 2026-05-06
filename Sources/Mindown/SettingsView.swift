@@ -15,7 +15,7 @@ struct SettingsView: View {
             )
 
             SectionPanel(
-                header: { SectionHeader(title: "YTDOWN PREFS") },
+                header: { SectionHeader(title: "MINDOWN PREFS") },
                 content: {
                     VStack(alignment: .leading, spacing: 10) {
                         pathRow(
