@@ -25,11 +25,10 @@ struct YTDownMacApp: App {
                     window.styleMask.insert(.fullSizeContentView)
                     window.isMovableByWindowBackground = true
                     window.backgroundColor = NSColor(WinampPalette.windowBackground)
-                    // Hide the standard macOS traffic lights — our custom
-                    // _ □ X buttons in WindowChromeTitleBar replace them.
-                    window.standardWindowButton(.closeButton)?.isHidden = true
-                    window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-                    window.standardWindowButton(.zoomButton)?.isHidden = true
+                    // Hide the standard macOS traffic lights aggressively
+                    // (isHidden + alphaValue) so our custom _ □ X buttons in
+                    // WindowChromeTitleBar are the only window controls.
+                    hideStandardWindowButtons(on: window)
                     disableFocusRings(on: window.contentView)
                 })
         }
@@ -54,9 +53,7 @@ struct YTDownMacApp: App {
                     window.backgroundColor = NSColor(WinampPalette.windowBackground)
                     // Hide standard traffic lights — fake _ □ X in the title
                     // bar replaces them, matching the main window's chrome.
-                    window.standardWindowButton(.closeButton)?.isHidden = true
-                    window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-                    window.standardWindowButton(.zoomButton)?.isHidden = true
+                    hideStandardWindowButtons(on: window)
                 })
         }
         .windowStyle(.hiddenTitleBar)
@@ -76,6 +73,21 @@ private struct WindowAccessor: NSViewRepresentable {
         return view
     }
     func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+/// Hide the standard macOS close/minimize/zoom traffic lights so our custom
+/// `_ □ X` chrome in `WindowChromeTitleBar` is the only set of window
+/// controls. We use both `isHidden` and `alphaValue` because some SwiftUI
+/// layout passes restore `isHidden` to false; setting alpha to zero is a
+/// belt-and-suspenders that survives those.
+private func hideStandardWindowButtons(on window: NSWindow) {
+    let kinds: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+    for kind in kinds {
+        guard let button = window.standardWindowButton(kind) else { continue }
+        button.isHidden = true
+        button.alphaValue = 0
+        button.isEnabled = false
+    }
 }
 
 /// Walks the AppKit view tree and turns off the focus ring on every control,
