@@ -64,6 +64,15 @@ cp "$BIN_CACHE/ffmpeg"            "$APP_DIR/Contents/Resources/bin/ffmpeg"
 cp "$BIN_CACHE/supportedsites.md" "$APP_DIR/Contents/Resources/supportedsites.md"
 chmod +x "$APP_DIR/Contents/Resources/bin/"*
 
+# Build the rounded-rect AppIcon.icns from docs/icon-source.png if missing,
+# then drop it into Resources/ so Finder/Dock/Cmd-Tab show the right artwork.
+if [[ ! -f "$ROOT/docs/AppIcon.icns" && -f "$ROOT/docs/icon-source.png" ]]; then
+    "$ROOT/make_icon.sh" "$ROOT/docs/icon-source.png" "$ROOT/docs/AppIcon.icns"
+fi
+if [[ -f "$ROOT/docs/AppIcon.icns" ]]; then
+    cp "$ROOT/docs/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+fi
+
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -89,6 +98,10 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
     <true/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.utilities</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
 </dict>
 </plist>
 PLIST
