@@ -224,7 +224,12 @@ struct WindowChromeTitleBar: View {
     var onClose: (() -> Void)? = nil
 
     var body: some View {
-        ZStack {
+        // Bottom-anchor the HStack so that, when the parent applies
+        // `.ignoresSafeArea(edges: .top)` and the chrome's drawing region
+        // grows up into the macOS titlebar safe area, the title and buttons
+        // stay anchored at the bottom (visible) edge instead of getting
+        // pushed off-screen by the default centered alignment.
+        ZStack(alignment: .bottom) {
             LinearGradient(
                 colors: [WinampPalette.titlebarTop, WinampPalette.titlebarBottom],
                 startPoint: .top, endPoint: .bottom
@@ -250,6 +255,7 @@ struct WindowChromeTitleBar: View {
             // does not get clipped by the window's rounded top-right corner
             // (~10px radius).
             .padding(.trailing, 18)
+            .padding(.bottom, 6)
         }
         .frame(height: 30)
         .overlay(BevelOverlay(inset: false))
