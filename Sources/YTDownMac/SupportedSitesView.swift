@@ -13,11 +13,11 @@ struct SupportedSitesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            WindowChromeTitleBar(
-                title: "SUPPORTED SITES",
-                onClose: { NSApp.keyWindow?.close() }
-            )
-            .ignoresSafeArea(edges: .top)
+            // leadingInset 76 keeps the title clear of the macOS
+            // close/min/zoom traffic lights, which are the only window
+            // controls we draw on this window.
+            WindowChromeTitleBar(title: "SUPPORTED SITES", leadingInset: 76)
+                .ignoresSafeArea(edges: .top)
 
             SectionPanel(
                 header: {
