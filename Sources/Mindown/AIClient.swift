@@ -30,7 +30,11 @@ struct AIClient {
         }
     }
 
-    func chat(messages: [[String: Any]], tools: [[String: Any]]) async throws -> Response {
+    /// Run a chat completion. Pass `tools` to enable function calling, or
+    /// leave it nil/empty for plain text generation (used by the lyrics
+    /// fallback).
+    func chat(messages: [[String: Any]],
+              tools: [[String: Any]]? = nil) async throws -> Response {
         let trimmed = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let url = URL(string: "\(trimmed)/chat/completions") else {
             throw AIError.badURL
@@ -42,12 +46,14 @@ struct AIClient {
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": model,
-            "messages": messages,
-            "tools": tools,
-            "tool_choice": "auto"
+            "messages": messages
         ]
+        if let tools, !tools.isEmpty {
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
+        }
         req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
 
         let (data, response) = try await URLSession.shared.data(for: req)

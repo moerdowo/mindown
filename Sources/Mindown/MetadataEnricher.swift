@@ -39,16 +39,30 @@ enum MetadataEnricher {
             guard let cid = track.collectionId else { return nil }
             return await lookupAlbumCopyright(collectionId: cid)
         }()
-        async let lyricsTask: String? = {
+        async let lyricsTask: (String?, LyricsSource) = {
             guard let artist = track.artistName,
-                  let trackName = track.trackName else { return nil }
+                  let trackName = track.trackName else { return (nil, .none) }
             let durationSec = track.trackTimeMillis.map { Int(Double($0) / 1000.0) }
-            return await fetchLyrics(
+            // Primary: free crowdsourced LRCLib database.
+            if let lrc = await fetchLyrics(
                 artist: artist,
                 track: trackName,
                 album: track.collectionName,
                 durationSeconds: durationSec
-            )
+            ) {
+                return (lrc, .lrclib)
+            }
+            // Fallback: ask the configured chat model. Off by default.
+            if AppSettings.shared.aiLyricsFallbackEnabled,
+               AISettings.shared.isConfigured,
+               let ai = await fetchLyricsViaAI(
+                   artist: artist,
+                   track: trackName,
+                   album: track.collectionName
+               ) {
+                return (ai, .ai)
+            }
+            return (nil, .none)
         }()
         async let coverTask: String? = {
             guard let raw = track.artworkUrl100 else { return nil }
@@ -68,7 +82,7 @@ enum MetadataEnricher {
         }()
 
         let copyright = await copyrightTask
-        let lyrics = await lyricsTask
+        let (lyrics, lyricsSource) = await lyricsTask
         let coverPath = await coverTask
 
         defer {
@@ -89,7 +103,11 @@ enum MetadataEnricher {
             if let a = track.artistName, let t = track.trackName {
                 bits.append("\(a) — \(t)")
             }
-            if lyrics != nil { bits.append("+lyrics") }
+            switch lyricsSource {
+            case .lrclib: bits.append("+lyrics")
+            case .ai:     bits.append("+lyrics(AI)")
+            case .none:   break
+            }
             if copyright != nil { bits.append("+©") }
             let summary = bits.joined(separator: " ")
             return (true, summary.isEmpty ? "tagged" : "tagged · \(summary)")
@@ -97,6 +115,8 @@ enum MetadataEnricher {
             return (false, "ffmpeg tag write failed")
         }
     }
+
+    private enum LyricsSource { case none, lrclib, ai }
 
     // MARK: - iTunes Search API
 
@@ -215,6 +235,69 @@ enum MetadataEnricher {
         request.timeoutInterval = 15
         let (data, _) = try await URLSession.shared.data(for: request)
         return data
+    }
+
+    // MARK: - AI lyrics fallback
+
+    /// Last-resort lyrics source: ask the configured chat model directly.
+    /// Some models will refuse for copyright reasons; in that case we
+    /// detect common refusal phrases and return nil so nothing junky
+    /// lands in the file's USLT frame.
+    private static func fetchLyricsViaAI(artist: String,
+                                         track: String,
+                                         album: String?) async -> String? {
+        let aiSettings = AISettings.shared
+        guard aiSettings.isConfigured else { return nil }
+
+        let albumPart = (album.flatMap { $0.isEmpty ? nil : $0 })
+            .map { " from the album \"\($0)\"" } ?? ""
+        let userPrompt = """
+        Provide the full lyrics for the song "\(track)" by \(artist)\(albumPart).
+
+        Rules:
+        - Return ONLY the lyrics text — no titles, no artist line, no commentary, no markdown formatting.
+        - Use a single newline between lines and a blank line between verses / sections.
+        - If you do not know the actual lyrics, respond with EXACTLY the token: NO_LYRICS
+        - Do not invent or paraphrase lyrics.
+        """
+        let messages: [[String: Any]] = [
+            ["role": "system",
+             "content": "You are a song-lyrics retrieval helper. You output plain-text lyrics only."],
+            ["role": "user", "content": userPrompt]
+        ]
+
+        let client = AIClient(
+            apiKey: aiSettings.apiKey,
+            baseURL: aiSettings.baseURL,
+            model: aiSettings.model
+        )
+
+        let raw: String
+        do {
+            let resp = try await client.chat(messages: messages, tools: nil)
+            raw = resp.choices.first?.message.content ?? ""
+        } catch {
+            return nil
+        }
+
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "NO_LYRICS" else { return nil }
+
+        // Heuristic refusal-detection: if the response is short or sounds
+        // like an apology / copyright disclaimer, treat as no lyrics.
+        let lowered = trimmed.lowercased()
+        let refusalSignals = [
+            "i can't", "i cannot", "i'm unable", "i am unable",
+            "i won't", "i will not",
+            "due to copyright", "i don't have access",
+            "as an ai", "i'm sorry",
+            "no_lyrics"
+        ]
+        for needle in refusalSignals where lowered.contains(needle) {
+            return nil
+        }
+        if trimmed.count < 80 { return nil }
+        return trimmed
     }
 
     // MARK: - Title cleanup

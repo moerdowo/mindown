@@ -54,6 +54,15 @@ struct SettingsView: View {
                             )
                         )
 
+                        toggleRow(
+                            label: "AI LYRICS",
+                            help: "if LRCLib has no lyrics, ask the configured chat model. Spends tokens against your AI quota.",
+                            isOn: Binding(
+                                get: { settings.aiLyricsFallbackEnabled },
+                                set: { settings.aiLyricsFallbackEnabled = $0 }
+                            )
+                        )
+
                         Spacer(minLength: 4)
                         HStack {
                             Spacer()
@@ -70,7 +79,7 @@ struct SettingsView: View {
                 }
             )
         }
-        .frame(width: 560, height: 360)
+        .frame(width: 560, height: 420)
         .background(WinampPalette.panelChrome)
     }
 

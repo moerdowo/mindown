@@ -25,11 +25,20 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(itunesLookupEnabled, forKey: Keys.itunes) }
     }
 
+    /// When true (and the AI sidebar is configured), MetadataEnricher will
+    /// ask the configured chat model for the song's lyrics if LRCLib has
+    /// no match. Off by default — opt-in because the model may decline,
+    /// hallucinate, or charge tokens against the user's API quota.
+    @Published var aiLyricsFallbackEnabled: Bool {
+        didSet { UserDefaults.standard.set(aiLyricsFallbackEnabled, forKey: Keys.aiLyrics) }
+    }
+
     private enum Keys {
         static let downloadDir = "downloadDirectory"
         static let ytDlp = "ytDlpPath"
         static let ffmpeg = "ffmpegPath"
         static let itunes = "itunesLookupEnabled"
+        static let aiLyrics = "aiLyricsFallbackEnabled"
     }
 
     private init() {
@@ -59,6 +68,10 @@ final class AppSettings: ObservableObject {
         } else {
             self.itunesLookupEnabled = defaults.bool(forKey: Keys.itunes)
         }
+
+        // Default the AI lyrics fallback OFF — the user must consciously
+        // opt in because it spends tokens against their chat API quota.
+        self.aiLyricsFallbackEnabled = defaults.bool(forKey: Keys.aiLyrics)
     }
 
     /// Look up an executable by name. Bundled copies inside
