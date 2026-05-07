@@ -32,21 +32,44 @@ enum MetadataEnricher {
         }
         guard let track else { return (false, "no iTunes match") }
 
-        // Pull artwork at the highest resolution iTunes serves.
-        var coverPath: String? = nil
-        if let raw = track.artworkUrl100 {
+        // Run the secondary lookups (album copyright + lyrics + cover art)
+        // in parallel — none block each other and total wall-time stays
+        // under ~2s on a typical connection.
+        async let copyrightTask: String? = {
+            guard let cid = track.collectionId else { return nil }
+            return await lookupAlbumCopyright(collectionId: cid)
+        }()
+        async let lyricsTask: String? = {
+            guard let artist = track.artistName,
+                  let trackName = track.trackName else { return nil }
+            let durationSec = track.trackTimeMillis.map { Int(Double($0) / 1000.0) }
+            return await fetchLyrics(
+                artist: artist,
+                track: trackName,
+                album: track.collectionName,
+                durationSeconds: durationSec
+            )
+        }()
+        async let coverTask: String? = {
+            guard let raw = track.artworkUrl100 else { return nil }
             let upscaled = raw
                 .replacingOccurrences(of: "100x100bb", with: "1200x1200bb")
                 .replacingOccurrences(of: "100x100", with: "1200x1200")
-            if let url = URL(string: upscaled),
-               let data = try? await fetchData(url) {
-                let tmp = (NSTemporaryDirectory() as NSString)
-                    .appendingPathComponent("mindown_cover_\(UUID().uuidString).jpg")
-                if (try? data.write(to: URL(fileURLWithPath: tmp))) != nil {
-                    coverPath = tmp
-                }
+            guard let url = URL(string: upscaled),
+                  let data = try? await fetchData(url) else { return nil }
+            let tmp = (NSTemporaryDirectory() as NSString)
+                .appendingPathComponent("mindown_cover_\(UUID().uuidString).jpg")
+            do {
+                try data.write(to: URL(fileURLWithPath: tmp))
+                return tmp
+            } catch {
+                return nil
             }
-        }
+        }()
+
+        let copyright = await copyrightTask
+        let lyrics = await lyricsTask
+        let coverPath = await coverTask
 
         defer {
             if let coverPath {
@@ -57,12 +80,18 @@ enum MetadataEnricher {
         let success = (try? writeTags(file: filePath,
                                       track: track,
                                       coverPath: coverPath,
+                                      copyright: copyright,
+                                      lyrics: lyrics,
                                       ffmpegPath: ffmpegPath)) != nil
 
         if success {
-            let summary = [track.artistName, track.trackName]
-                .compactMap { $0 }
-                .joined(separator: " — ")
+            var bits: [String] = []
+            if let a = track.artistName, let t = track.trackName {
+                bits.append("\(a) — \(t)")
+            }
+            if lyrics != nil { bits.append("+lyrics") }
+            if copyright != nil { bits.append("+©") }
+            let summary = bits.joined(separator: " ")
             return (true, summary.isEmpty ? "tagged" : "tagged · \(summary)")
         } else {
             return (false, "ffmpeg tag write failed")
@@ -72,9 +101,11 @@ enum MetadataEnricher {
     // MARK: - iTunes Search API
 
     struct ITunesTrack: Decodable {
+        let wrapperType: String?
         let trackName: String?
         let artistName: String?
         let collectionName: String?
+        let collectionId: Int?
         let releaseDate: String?      // "2022-10-21T07:00:00Z"
         let primaryGenreName: String?
         let trackNumber: Int?
@@ -82,6 +113,10 @@ enum MetadataEnricher {
         let discNumber: Int?
         let discCount: Int?
         let artworkUrl100: String?
+        let trackTimeMillis: Int?
+        /// Only present on collection / album wrappers (iTunes lookup), not
+        /// on song search results.
+        let copyright: String?
     }
 
     private struct SearchResponse: Decodable {
@@ -104,7 +139,75 @@ enum MetadataEnricher {
 
         let (data, _) = try await URLSession.shared.data(for: request)
         let response = try JSONDecoder().decode(SearchResponse.self, from: data)
-        return response.results.first
+        return response.results.first(where: { $0.trackName != nil })
+    }
+
+    /// iTunes Search API doesn't expose copyright on song results — but it
+    /// does on album (collection) lookups. Hit `/lookup` with the
+    /// collectionId from the matched track to grab "℗ 2022 Republic
+    /// Records, …" style strings.
+    private static func lookupAlbumCopyright(collectionId: Int) async -> String? {
+        var components = URLComponents(string: "https://itunes.apple.com/lookup")!
+        components.queryItems = [
+            URLQueryItem(name: "id",     value: String(collectionId)),
+            URLQueryItem(name: "entity", value: "album")
+        ]
+        guard let url = components.url else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue("Mindown/1.0", forHTTPHeaderField: "User-Agent")
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let resp = try JSONDecoder().decode(SearchResponse.self, from: data)
+            return resp.results.first(where: { $0.wrapperType == "collection" })?.copyright
+        } catch {
+            return nil
+        }
+    }
+
+    // MARK: - LRCLib (free, no auth) — lyrics
+
+    private struct LRCLibResponse: Decodable {
+        let plainLyrics: String?
+        let syncedLyrics: String?
+        let instrumental: Bool?
+    }
+
+    /// Look up plain-text lyrics for the matched track on LRCLib. Returns
+    /// nil for instrumentals, missing tracks, or any HTTP error.
+    private static func fetchLyrics(artist: String,
+                                    track: String,
+                                    album: String?,
+                                    durationSeconds: Int?) async -> String? {
+        var components = URLComponents(string: "https://lrclib.net/api/get")!
+        var items: [URLQueryItem] = [
+            URLQueryItem(name: "artist_name", value: artist),
+            URLQueryItem(name: "track_name",  value: track)
+        ]
+        if let album, !album.isEmpty {
+            items.append(URLQueryItem(name: "album_name", value: album))
+        }
+        if let durationSeconds {
+            items.append(URLQueryItem(name: "duration", value: String(durationSeconds)))
+        }
+        components.queryItems = items
+        guard let url = components.url else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue("Mindown/1.0 (https://github.com/moerdowo/mindown)", forHTTPHeaderField: "User-Agent")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            let resp = try JSONDecoder().decode(LRCLibResponse.self, from: data)
+            if resp.instrumental == true { return nil }
+            let plain = resp.plainLyrics?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let plain, !plain.isEmpty { return plain }
+            return nil
+        } catch {
+            return nil
+        }
     }
 
     private static func fetchData(_ url: URL) async throws -> Data {
@@ -160,6 +263,8 @@ enum MetadataEnricher {
     private static func writeTags(file: String,
                                   track: ITunesTrack,
                                   coverPath: String?,
+                                  copyright: String?,
+                                  lyrics: String?,
                                   ffmpegPath: String) throws {
         let inputURL = URL(fileURLWithPath: file)
         let ext = inputURL.pathExtension
@@ -189,6 +294,10 @@ enum MetadataEnricher {
         if let artist = track.artistName, !artist.isEmpty {
             args.append(contentsOf: ["-metadata", "artist=\(artist)"])
             args.append(contentsOf: ["-metadata", "album_artist=\(artist)"])
+            // iTunes Search API doesn't expose composer; fall back to the
+            // performing artist so the field at least resolves to a real
+            // person/group rather than staying empty in the playlist UI.
+            args.append(contentsOf: ["-metadata", "composer=\(artist)"])
         }
         if let album = track.collectionName, !album.isEmpty {
             args.append(contentsOf: ["-metadata", "album=\(album)"])
@@ -208,6 +317,16 @@ enum MetadataEnricher {
         if let n = track.discNumber {
             let value = track.discCount.map { "\(n)/\($0)" } ?? "\(n)"
             args.append(contentsOf: ["-metadata", "disc=\(value)"])
+        }
+        if let copyright, !copyright.isEmpty {
+            args.append(contentsOf: ["-metadata", "copyright=\(copyright)"])
+        }
+        if let lyrics, !lyrics.isEmpty {
+            // ID3v2 USLT frames key off "lyrics-XXX" with a 3-letter ISO
+            // language code; ffmpeg also accepts the bare "lyrics" key for
+            // mp4/m4a containers and writes the right atom (©lyr) there.
+            args.append(contentsOf: ["-metadata", "lyrics-eng=\(lyrics)"])
+            args.append(contentsOf: ["-metadata", "lyrics=\(lyrics)"])
         }
 
         // Mark the cover stream as attached picture (front cover).
