@@ -265,6 +265,7 @@ struct QueueRow: View {
     @ObservedObject var item: DownloadItem
     @EnvironmentObject var manager: DownloadManager
     let index: Int
+    @State private var showingLyrics: Bool = false
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -417,6 +418,13 @@ struct QueueRow: View {
             Button("STOP") { manager.cancel(item) }
                 .buttonStyle(WinampButtonStyle(minWidth: 42, height: 16))
         case .completed:
+            if item.format.isAudio && !item.outputPath.isEmpty {
+                Button("LYR") { showingLyrics = true }
+                    .buttonStyle(WinampButtonStyle(minWidth: 36, height: 16))
+                    .sheet(isPresented: $showingLyrics) {
+                        LyricsView(title: item.title, filePath: item.outputPath)
+                    }
+            }
             Button("SHOW") { manager.revealInFinder(item) }
                 .buttonStyle(WinampButtonStyle(minWidth: 42, height: 16))
             Button("DEL") { manager.remove(item) }
