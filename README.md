@@ -20,6 +20,10 @@ and any OpenAI-compatible chat model you point it at.
 - **AI ASSIST** sidebar — chat-driven downloads. Ask "anti-hero by taylor
   swift as mp3" or "top 5 radiohead songs" and the model finds the right
   URL, format, and quality, then asks you to approve before queuing.
+- **Auto ID3 / iTunes tagging** for every audio download — title, artist,
+  album, album_artist, composer, year, genre, track number, copyright,
+  full lyrics (USLT), and a 1200×1200 cover, sourced from Apple's iTunes
+  Search API and LRCLib.
 - **SITES** window — searchable list of every site `yt-dlp` supports
   (1900+), bundled offline so it works without a network round trip.
 - Bundle ships with **yt-dlp** and a static **ffmpeg** matching your Mac's
@@ -51,6 +55,44 @@ becomes a music-download front-end for the rest of the app:
 
 Works with anything that exposes `/chat/completions` — OpenAI, OpenRouter,
 Groq, Together, Anthropic via gateway, local Ollama in OpenAI mode, etc.
+
+## Music metadata enrichment
+
+Every audio download (mp3 / m4a / opus / wav) automatically goes through a
+post-download tagging pass so files land in your library already labelled
+and ready for Music.app, Plex, Doppler, etc. Video downloads are skipped.
+
+| Field | Source | ID3 / iTunes mapping |
+|---|---|---|
+| Title | iTunes Search · `trackName` | `TIT2` / `©nam` |
+| Artist | iTunes Search · `artistName` | `TPE1` / `©ART` |
+| Album | iTunes Search · `collectionName` | `TALB` / `©alb` |
+| Album artist | = artist | `TPE2` / `aART` |
+| Composer | falls back to performing artist | `TCOM` / `©wrt` |
+| Year | iTunes Search · `releaseDate` (year prefix) | `TYER` / `©day` |
+| Genre | iTunes Search · `primaryGenreName` | `TCON` / `©gen` |
+| Track number | iTunes Search · `trackNumber/trackCount` | `TRCK` / `trkn` |
+| Disc number | iTunes Search · `discNumber/discCount` | `TPOS` / `disk` |
+| Copyright | iTunes album lookup · `copyright` | `TCOP` / `cprt` |
+| Cover art | iTunes (1200×1200 upscale of `artworkUrl100`) | `APIC` / `covr` |
+| Lyrics | LRCLib · `plainLyrics` | `USLT` (lang=eng) / `©lyr` |
+| Bitrate / sample rate / duration / channels / codec | embedded by ffmpeg from the audio stream itself | container-intrinsic |
+
+Implementation:
+
+- The lookups (album-copyright, lyrics, cover download) run in parallel via
+  Swift `async let`, so total wall time is dominated by whichever is
+  slowest — typically ~1s.
+- The matched track and a 1200×1200 cover are passed to the bundled
+  `ffmpeg`, which rewrites the file in place with `-id3v2_version 3
+  -write_id3v1 1` for mp3 and the equivalent atom-based metadata for
+  m4a / opus / wav.
+- The post-download status badge in each playlist row goes from `TAG…`
+  (amber) to `♪` (green) when tagging succeeds, or `TAG✗` (red) on
+  failure. Hover the row for the full match summary or error message.
+- Toggle the whole feature with the **iTunes TAG** switch in **PREFS**.
+
+iTunes Search and LRCLib are both free, public, no-auth APIs.
 
 ## Build & run
 
@@ -96,6 +138,7 @@ Sources/Mindown/
 ├── WinampStyle.swift         // Palette, beveled panels, LCD text, etc.
 ├── DownloadModels.swift      // MediaFormat / Quality / DownloadItem
 ├── DownloadManager.swift     // yt-dlp Process orchestration + progress
+├── MetadataEnricher.swift    // iTunes Search + LRCLib → ID3 / iTunes tags
 ├── AppSettings.swift         // UserDefaults-backed preferences
 ├── AISettings.swift          // API key / base URL / model / sidebar
 ├── ChatModels.swift          // ChatMessage / Proposal / ProposedDownload
@@ -108,8 +151,8 @@ Sources/Mindown/
 ## Configuration
 
 - **PREFS** sheet (footer button): override download directory, yt-dlp
-  path, and ffmpeg path. Bundled binaries are picked up automatically on
-  fresh installs.
+  path, ffmpeg path, and toggle the **iTunes TAG** metadata enrichment
+  pass. Bundled binaries are picked up automatically on fresh installs.
 - **AI ASSIST** sidebar: API key, base URL, model. Defaults to OpenAI's
   `gpt-4o-mini` against `https://api.openai.com/v1`.
 - All values persist via `UserDefaults`.
