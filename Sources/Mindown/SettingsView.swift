@@ -45,6 +45,15 @@ struct SettingsView: View {
                             size: 10
                         )
 
+                        toggleRow(
+                            label: "iTunes TAG",
+                            help: "fill ID3/iTunes metadata + cover art via Apple's iTunes Search API after each music download",
+                            isOn: Binding(
+                                get: { settings.itunesLookupEnabled },
+                                set: { settings.itunesLookupEnabled = $0 }
+                            )
+                        )
+
                         Spacer(minLength: 4)
                         HStack {
                             Spacer()
@@ -61,7 +70,7 @@ struct SettingsView: View {
                 }
             )
         }
-        .frame(width: 560, height: 280)
+        .frame(width: 560, height: 360)
         .background(WinampPalette.panelChrome)
     }
 
@@ -81,6 +90,34 @@ struct SettingsView: View {
             .overlay(BevelOverlay(inset: true))
             Button("CHANGE", action: action)
                 .buttonStyle(WinampButtonStyle(minWidth: 64, height: 22))
+        }
+    }
+
+    private func toggleRow(label: String, help: String, isOn: Binding<Bool>) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            LCDText(text: label, color: WinampPalette.lcdGreenDim, size: 11)
+                .frame(width: 64, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Button(action: { isOn.wrappedValue.toggle() }) {
+                    HStack(spacing: 6) {
+                        LCDText(
+                            text: isOn.wrappedValue ? "[x]" : "[ ]",
+                            color: isOn.wrappedValue ? WinampPalette.lcdGreen : WinampPalette.lcdGreenDim,
+                            size: 11
+                        )
+                        LCDText(
+                            text: isOn.wrappedValue ? "ON" : "OFF",
+                            color: isOn.wrappedValue ? WinampPalette.lcdGreen : WinampPalette.lcdGreenDim,
+                            size: 11
+                        )
+                    }
+                }
+                .buttonStyle(.plain)
+                LCDText(text: help, color: WinampPalette.lcdGreenDim, size: 9)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
         }
     }
 

@@ -18,10 +18,18 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(ffmpegPath, forKey: Keys.ffmpeg) }
     }
 
+    /// When true, audio downloads kick off an Apple iTunes Search API
+    /// lookup once the file lands and rewrite its ID3 / iTunes metadata
+    /// (title, artist, album, year, genre, track number, cover art).
+    @Published var itunesLookupEnabled: Bool {
+        didSet { UserDefaults.standard.set(itunesLookupEnabled, forKey: Keys.itunes) }
+    }
+
     private enum Keys {
         static let downloadDir = "downloadDirectory"
         static let ytDlp = "ytDlpPath"
         static let ffmpeg = "ffmpegPath"
+        static let itunes = "itunesLookupEnabled"
     }
 
     private init() {
@@ -43,6 +51,14 @@ final class AppSettings: ObservableObject {
 
         self.ffmpegPath = defaults.string(forKey: Keys.ffmpeg)
             ?? AppSettings.detectExecutable(["ffmpeg"]) ?? ""
+
+        // Default the iTunes lookup ON for fresh installs; respect any
+        // previously saved choice on subsequent launches.
+        if defaults.object(forKey: Keys.itunes) == nil {
+            self.itunesLookupEnabled = true
+        } else {
+            self.itunesLookupEnabled = defaults.bool(forKey: Keys.itunes)
+        }
     }
 
     /// Look up an executable by name. Bundled copies inside

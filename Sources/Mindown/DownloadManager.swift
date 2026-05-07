@@ -240,11 +240,42 @@ final class DownloadManager: ObservableObject {
             item.status = .completed
             item.eta = ""
             item.speed = ""
+            kickMetadataEnrichment(for: item)
         } else {
             let msg = item.lastLine.isEmpty
                 ? "yt-dlp exited with code \(proc.terminationStatus)"
                 : item.lastLine
             item.status = .failed(msg)
+        }
+    }
+
+    /// After a successful audio download, kick a background task that asks
+    /// Apple's iTunes Search API for clean track metadata + cover art and
+    /// rewrites the file via ffmpeg. No-op for video downloads or when the
+    /// user has disabled the lookup in PREFS.
+    private func kickMetadataEnrichment(for item: DownloadItem) {
+        guard item.format.isAudio else { return }
+        let settings = AppSettings.shared
+        guard settings.itunesLookupEnabled else { return }
+        let path = item.outputPath
+        let title = item.title
+        let ffmpeg = settings.ffmpegPath
+        guard !path.isEmpty,
+              !title.isEmpty,
+              FileManager.default.isExecutableFile(atPath: ffmpeg) else { return }
+
+        item.metadataStatus = .enriching
+        Task.detached { [item] in
+            let result = await MetadataEnricher.enrich(
+                filePath: path,
+                searchTitle: title,
+                ffmpegPath: ffmpeg
+            )
+            await MainActor.run {
+                item.metadataStatus = result.applied
+                    ? .enriched(result.message)
+                    : .failed(result.message)
+            }
         }
     }
 

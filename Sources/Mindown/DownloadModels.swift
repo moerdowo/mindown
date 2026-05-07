@@ -99,6 +99,24 @@ enum DownloadStatus: Equatable {
     }
 }
 
+/// Status of the post-download iTunes Search API metadata enrichment pass.
+/// Only meaningful on audio downloads; video stays at `.notApplicable`.
+enum MetadataStatus: Equatable {
+    case notApplicable
+    case enriching
+    case enriched(String)
+    case failed(String)
+
+    var shortLabel: String {
+        switch self {
+        case .notApplicable: return ""
+        case .enriching:     return "TAG…"
+        case .enriched:      return "♪"
+        case .failed:        return "TAG✗"
+        }
+    }
+}
+
 final class DownloadItem: Identifiable, ObservableObject {
     let id = UUID()
     let url: String
@@ -114,6 +132,7 @@ final class DownloadItem: Identifiable, ObservableObject {
     @Published var totalSize: String = ""
     @Published var outputPath: String = ""
     @Published var lastLine: String = ""
+    @Published var metadataStatus: MetadataStatus = .notApplicable
 
     init(url: String, format: MediaFormat, quality: Quality, title: String? = nil) {
         self.url = url

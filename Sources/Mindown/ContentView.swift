@@ -295,6 +295,12 @@ struct QueueRow: View {
                         color: WinampPalette.lcdAmber, size: 10)
                     .fixedSize()
 
+                if !item.metadataStatus.shortLabel.isEmpty {
+                    LCDText(text: item.metadataStatus.shortLabel,
+                            color: metadataColor, size: 10)
+                        .fixedSize()
+                }
+
                 LCDText(text: rightStatusText, color: ledColor, size: 11)
                     .frame(width: 58, alignment: .trailing)
 
@@ -331,6 +337,15 @@ struct QueueRow: View {
         }
     }
 
+    private var metadataColor: Color {
+        switch item.metadataStatus {
+        case .enriching:     return WinampPalette.lcdAmber
+        case .enriched:      return WinampPalette.lcdGreen
+        case .failed:        return WinampPalette.lcdRed
+        case .notApplicable: return WinampPalette.lcdGreenDim
+        }
+    }
+
     private var showsProgress: Bool {
         if case .running = item.status { return true }
         return false
@@ -364,16 +379,24 @@ struct QueueRow: View {
     }
 
     private var helpText: String {
+        let base: String
         switch item.status {
         case .running:
             let speed = item.speed.isEmpty ? "—" : item.speed
             let eta   = item.eta.isEmpty   ? "—" : item.eta
             let size  = item.totalSize.isEmpty ? "—" : item.totalSize
-            return "Downloading: ▼\(speed)  ETA \(eta)  SZ \(size)"
-        case .completed: return item.outputPath.isEmpty ? "Done" : "Done • \(item.outputPath)"
-        case .queued:    return "Queued"
-        case .failed(let msg): return "Error: \(msg)"
-        case .canceled:  return "Canceled"
+            base = "Downloading: ▼\(speed)  ETA \(eta)  SZ \(size)"
+        case .completed:
+            base = item.outputPath.isEmpty ? "Done" : "Done • \(item.outputPath)"
+        case .queued:           base = "Queued"
+        case .failed(let msg):  base = "Error: \(msg)"
+        case .canceled:         base = "Canceled"
+        }
+        switch item.metadataStatus {
+        case .enriching:        return "\(base)\niTunes lookup running…"
+        case .enriched(let m):  return "\(base)\niTunes: \(m)"
+        case .failed(let m):    return "\(base)\niTunes lookup failed: \(m)"
+        case .notApplicable:    return base
         }
     }
 
