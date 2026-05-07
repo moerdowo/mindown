@@ -7,14 +7,21 @@ import SwiftUI
 struct AIChatView: View {
     @EnvironmentObject var settings: AISettings
     @ObservedObject var vm: ChatViewModel
+    @FocusState private var inputFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             SectionHeader(title: "AI ASSIST") {
-                LCDText(
-                    text: settings.isConfigured ? settings.model.uppercased() : "SETUP",
-                    color: WinampPalette.lcdAmber, size: 10
-                )
+                HStack(spacing: 6) {
+                    LCDText(
+                        text: settings.isConfigured ? settings.model.uppercased() : "SETUP",
+                        color: WinampPalette.lcdAmber, size: 10
+                    )
+                    if settings.isConfigured && !vm.messages.isEmpty {
+                        Button("NEW") { vm.resetConversation() }
+                            .buttonStyle(WinampButtonStyle(minWidth: 42, height: 16))
+                    }
+                }
             }
 
             if settings.isConfigured {
@@ -89,6 +96,7 @@ struct AIChatView: View {
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .foregroundColor(WinampPalette.lcdGreen)
                 .padding(.horizontal, 6)
+                .focused($inputFocused)
                 .onSubmit { vm.sendDraft() }
             }
             .frame(height: 24)
@@ -104,6 +112,12 @@ struct AIChatView: View {
             Rectangle().fill(WinampPalette.bevelDark).frame(height: 1),
             alignment: .top
         )
+        .onAppear { inputFocused = true }
+        .onChange(of: vm.refocusToken) { _, _ in
+            // Bumped after each turn finishes / proposal resolves so focus
+            // returns to the input without the user having to click first.
+            inputFocused = true
+        }
     }
 }
 

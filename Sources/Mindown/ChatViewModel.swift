@@ -16,12 +16,23 @@ final class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var draft: String = ""
     @Published var isThinking: Bool = false
+    /// Bumped whenever a turn finishes (or a proposal resolves) so the view
+    /// can refocus the input for fluid back-and-forth chat.
+    @Published var refocusToken: Int = 0
 
     private let manager: DownloadManager
     private let settings: AISettings
     private let appSettings: AppSettings
 
     private var pending: [UUID: CheckedContinuation<[Bool], Never>] = [:]
+
+    /// Full OpenAI-shape transcript that PERSISTS across user messages.
+    /// Critical for tool-calling: the API rejects a chat where an assistant
+    /// `tool_calls` message isn't followed by the matching `tool` results,
+    /// so we must keep the entire history (system + user + assistant +
+    /// tool_calls + tool results …) instead of rebuilding it from the
+    /// visible chat each turn.
+    private var apiTranscript: [[String: Any]] = []
 
     init(manager: DownloadManager,
          settings: AISettings = .shared,
@@ -42,6 +53,7 @@ final class ChatViewModel: ObservableObject {
 
     private func send(_ text: String) {
         messages.append(ChatMessage(role: .user, kind: .text(text)))
+        apiTranscript.append(["role": "user", "content": text])
         Task { await runConversation() }
     }
 
@@ -49,7 +61,10 @@ final class ChatViewModel: ObservableObject {
 
     private func runConversation() async {
         isThinking = true
-        defer { isThinking = false }
+        defer {
+            isThinking = false
+            refocusToken &+= 1
+        }
 
         let client = AIClient(
             apiKey: settings.apiKey,
@@ -57,40 +72,51 @@ final class ChatViewModel: ObservableObject {
             model: settings.model
         )
 
-        var apiMessages: [[String: Any]] = [systemMessage()]
-        apiMessages.append(contentsOf: transcriptToAPIMessages())
-
         var iterations = 0
         while iterations < 8 {
             iterations += 1
+            let apiMessages = [systemMessage()] + apiTranscript
             do {
-                let response = try await client.chat(messages: apiMessages, tools: AITools.definitions)
+                let response = try await client.chat(
+                    messages: apiMessages,
+                    tools: AITools.definitions
+                )
                 guard let choice = response.choices.first else { break }
 
-                if let content = choice.message.content, !content.isEmpty {
+                let content = choice.message.content ?? ""
+                let calls = choice.message.tool_calls ?? []
+
+                // Always record the assistant turn so the next request keeps
+                // a valid {assistant tool_calls → tool results} pairing.
+                var assistantMsg: [String: Any] = ["role": "assistant"]
+                assistantMsg["content"] = content
+                if !calls.isEmpty {
+                    assistantMsg["tool_calls"] = calls.map { tc -> [String: Any] in
+                        [
+                            "id": tc.id,
+                            "type": "function",
+                            "function": [
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            ]
+                        ]
+                    }
+                }
+                apiTranscript.append(assistantMsg)
+
+                // Surface visible assistant text in the chat UI.
+                if !content.isEmpty {
                     messages.append(ChatMessage(role: .assistant, kind: .text(content)))
                 }
 
-                guard let calls = choice.message.tool_calls, !calls.isEmpty else { break }
+                // No more tool calls → final reply landed; ready for next turn.
+                if calls.isEmpty { break }
 
-                // Append assistant turn (with tool_calls) to the API message log.
-                var assistantMsg: [String: Any] = ["role": "assistant"]
-                assistantMsg["content"] = choice.message.content ?? ""
-                assistantMsg["tool_calls"] = calls.map { tc -> [String: Any] in
-                    [
-                        "id": tc.id,
-                        "type": "function",
-                        "function": [
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments
-                        ]
-                    ]
-                }
-                apiMessages.append(assistantMsg)
-
+                // Run each tool call and feed its result back into the
+                // transcript before looping back to the model.
                 for call in calls {
                     let toolResult = await execute(call)
-                    apiMessages.append([
+                    apiTranscript.append([
                         "role": "tool",
                         "tool_call_id": call.id,
                         "name": call.function.name,
@@ -196,6 +222,19 @@ final class ChatViewModel: ObservableObject {
         if let cont = pending.removeValue(forKey: proposalId) {
             cont.resume(returning: decisions)
         }
+        // Hand focus back to the input field so the user can keep chatting
+        // even while the model is working on its summary message.
+        refocusToken &+= 1
+    }
+
+    /// Wipe the visible chat AND the API transcript. Useful when the user
+    /// wants a fresh conversation that doesn't carry old tool-call context.
+    func resetConversation() {
+        messages.removeAll()
+        apiTranscript.removeAll()
+        pending.values.forEach { $0.resume(returning: []) }
+        pending.removeAll()
+        refocusToken &+= 1
     }
 
     // MARK: - API message construction
@@ -227,21 +266,4 @@ final class ChatViewModel: ObservableObject {
         return ["role": "system", "content": prompt]
     }
 
-    private func transcriptToAPIMessages() -> [[String: Any]] {
-        messages.compactMap { m -> [String: Any]? in
-            switch (m.role, m.kind) {
-            case (.user, .text(let t)):
-                return ["role": "user", "content": t]
-            case (.assistant, .text(let t)):
-                return ["role": "assistant", "content": t]
-            case (.assistant, .proposal):
-                // Proposals are surfaced via tool_call/tool_result in the
-                // current call cycle; we don't replay them on subsequent
-                // turns so we skip them here.
-                return nil
-            default:
-                return nil
-            }
-        }
-    }
 }
